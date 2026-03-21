@@ -1,8 +1,219 @@
-# Simple dictionary to keep track of users' states
-user_state = {}
+import sqlite3
+import json
+from datetime import datetime, timedelta
 
-def set_state(phone, state):
-    user_state[phone] = state
+# Database file
+DB_FILE = 'philaconnect.db'
+
+def init_db():
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    # Hospitals table
+    c.execute('''CREATE TABLE IF NOT EXISTS hospitals (
+        id INTEGER PRIMARY KEY,
+        name TEXT NOT NULL
+    )''')
+    # Doctors table
+    c.execute('''CREATE TABLE IF NOT EXISTS doctors (
+        id INTEGER PRIMARY KEY,
+        name TEXT NOT NULL,
+        specialty TEXT NOT NULL,
+        hospital_id INTEGER,
+        is_active INTEGER DEFAULT 1,
+        available_days TEXT DEFAULT 'Mon,Tue,Wed,Thu,Fri,Sat,Sun'
+    )''')
+    # Appointments table
+    c.execute('''CREATE TABLE IF NOT EXISTS appointments (
+        id INTEGER PRIMARY KEY,
+        phone TEXT NOT NULL,
+        doctor_id INTEGER,
+        date TEXT NOT NULL,
+        time TEXT NOT NULL,
+        status TEXT DEFAULT 'booked',
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (doctor_id) REFERENCES doctors(id)
+    )''')
+    # User states table for persistence
+    c.execute('''CREATE TABLE IF NOT EXISTS user_states (
+        phone TEXT PRIMARY KEY,
+        state TEXT,
+        data TEXT
+    )''')
+    # Doctor availability (for future, currently all available)
+    c.execute('''CREATE TABLE IF NOT EXISTS doctor_availability (
+        id INTEGER PRIMARY KEY,
+        doctor_id INTEGER,
+        day_of_week INTEGER,  -- 0=Monday, 6=Sunday
+        start_time TEXT,
+        end_time TEXT,
+        FOREIGN KEY (doctor_id) REFERENCES doctors(id)
+    )''')
+
+    # Ensure column available_days exists for backward compatibility
+    c.execute("PRAGMA table_info(doctors)")
+    columns = [row[1] for row in c.fetchall()]
+    if 'available_days' not in columns:
+        c.execute("ALTER TABLE doctors ADD COLUMN available_days TEXT DEFAULT 'Mon,Tue,Wed,Thu,Fri,Sat,Sun'")
+
+    # Insert sample data if not exists
+    c.execute('SELECT COUNT(*) FROM hospitals')
+    if c.fetchone()[0] == 0:
+        hospitals = [
+            ('The Riverside Cottage',),
+        ]
+        c.executemany('INSERT INTO hospitals (name) VALUES (?)', hospitals)
+        hospital_id = c.lastrowid
+        doctors = [
+            ('Dr. Kotzé-Scott', 'General Practice', hospital_id, 'Mon,Tue,Wed,Thu,Fri,Sat,Sun'),
+            ('Dr. Awe', 'General Practice', hospital_id, 'Mon,Tue,Wed,Thu,Fri,Sat,Sun'),
+            ('Dr. Blumenthal', 'General Practice', hospital_id, 'Mon,Tue,Wed,Thu,Fri,Sat,Sun')
+        ]
+        c.executemany('INSERT INTO doctors (name, specialty, hospital_id, available_days) VALUES (?, ?, ?, ?)', doctors)
+
+    # Update specialties to General Practice
+    c.execute('UPDATE doctors SET specialty = "General Practice" WHERE specialty IS NOT NULL')
+    conn.commit()
+    conn.close()
+
+def set_state(phone, state, data=None):
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    data_json = json.dumps(data) if data else None
+    c.execute('INSERT OR REPLACE INTO user_states (phone, state, data) VALUES (?, ?, ?)', (phone, state, data_json))
+    conn.commit()
+    conn.close()
 
 def get_state(phone):
-    return user_state.get(phone)
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute('SELECT state, data FROM user_states WHERE phone = ?', (phone,))
+    row = c.fetchone()
+    conn.close()
+    if row:
+        state, data_json = row
+        data = json.loads(data_json) if data_json else None
+        return state, data
+    return None, None
+
+def get_hospitals():
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute('SELECT id, name FROM hospitals')
+    hospitals = c.fetchall()
+    conn.close()
+    return hospitals
+
+def get_doctors(hospital_id):
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute('SELECT id, name, specialty, available_days FROM doctors WHERE hospital_id = ? AND is_active = 1', (hospital_id,))
+    doctors = c.fetchall()
+    conn.close()
+    return doctors
+
+def get_available_dates(doctor_id, days_ahead=14):
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute('SELECT available_days FROM doctors WHERE id = ?', (doctor_id,))
+    row = c.fetchone()
+    conn.close()
+    if not row:
+        return []
+    available_days = row[0].split(',') if row[0] else []
+    day_names = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+    available_indices = [day_names.index(d) for d in available_days if d in day_names]
+    dates = []
+    today = datetime.now()
+    for i in range(1, days_ahead + 1):
+        date = today + timedelta(days=i)
+        if date.weekday() in available_indices:
+            dates.append(date.strftime('%Y-%m-%d'))
+    return dates
+
+def get_available_times(doctor_id, date):
+    # For now, 9am to 5pm every hour
+    times = []
+    for hour in range(9, 18):
+        times.append(f'{hour:02d}:00')
+    return times
+
+def book_appointment(phone, doctor_id, date, time):
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute('INSERT INTO appointments (phone, doctor_id, date, time) VALUES (?, ?, ?, ?)', (phone, doctor_id, date, time))
+    appointment_id = c.lastrowid
+    conn.commit()
+    conn.close()
+    return appointment_id
+
+def get_appointments(phone=None, doctor_id=None):
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    if phone:
+        c.execute('''SELECT a.id, d.id, d.name, d.specialty, h.name, a.date, a.time, a.status
+                     FROM appointments a
+                     JOIN doctors d ON a.doctor_id = d.id
+                     JOIN hospitals h ON d.hospital_id = h.id
+                     WHERE a.phone = ? AND a.status = 'booked'
+                     ORDER BY a.date, a.time''', (phone,))
+    elif doctor_id:
+        c.execute('''SELECT a.id, a.phone, a.date, a.time, a.status
+                     FROM appointments a
+                     WHERE a.doctor_id = ? AND a.status = 'booked'
+                     ORDER BY a.date, a.time''', (doctor_id,))
+    else:
+        c.execute('''SELECT a.id, a.phone, d.name, h.name, a.date, a.time, a.status
+                     FROM appointments a
+                     JOIN doctors d ON a.doctor_id = d.id
+                     JOIN hospitals h ON d.hospital_id = h.id
+                     WHERE a.status = 'booked'
+                     ORDER BY a.date, a.time''')
+    appointments = c.fetchall()
+    conn.close()
+    return appointments
+
+def cancel_appointment(appointment_id):
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute('UPDATE appointments SET status = "canceled" WHERE id = ?', (appointment_id,))
+    conn.commit()
+    conn.close()
+
+def toggle_doctor(doctor_id, active):
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute('UPDATE doctors SET is_active = ? WHERE id = ?', (1 if active else 0, doctor_id))
+    conn.commit()
+    conn.close()
+
+def update_doctor_availability(doctor_id, available_days):
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute('UPDATE doctors SET available_days = ? WHERE id = ?', (available_days, doctor_id))
+    conn.commit()
+    conn.close()
+
+def get_doctors_all():
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute('SELECT id, name, specialty, hospital_id, is_active, available_days FROM doctors')
+    doctors = c.fetchall()
+    conn.close()
+    return doctors
+
+def get_upcoming_appointments(hours_ahead=48):
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    now = datetime.now()
+    future = now + timedelta(hours=hours_ahead)
+    c.execute('''SELECT a.id, a.phone, d.name, a.date, a.time
+                 FROM appointments a
+                 JOIN doctors d ON a.doctor_id = d.id
+                 WHERE a.status = 'booked' AND datetime(a.date || " " || a.time) BETWEEN ? AND ?''',
+              (now.strftime('%Y-%m-%d %H:%M'), future.strftime('%Y-%m-%d %H:%M')))
+    appointments = c.fetchall()
+    conn.close()
+    return appointments
+
+# Initialize DB on import
+init_db()

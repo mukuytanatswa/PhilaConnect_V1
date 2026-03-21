@@ -1,0 +1,1484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PhilaConnect — Clinic Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --cream: #FAF7F2;
+    --warm-white: #FFFFFF;
+    --ink: #1A1410;
+    --ink-soft: #4A3F35;
+    --ink-muted: #8C7B6E;
+    --terracotta: #C45C3A;
+    --terracotta-light: #F0DDD6;
+    --terracotta-pale: #FBF0EC;
+    --sage: #5C7A5C;
+    --sage-light: #D6E8D6;
+    --amber: #D4872A;
+    --amber-light: #FAE8CC;
+    --sky: #3A6B8A;
+    --sky-light: #D6E8F5;
+    --border: #E8E0D8;
+    --shadow: 0 2px 12px rgba(26,20,16,0.07);
+    --shadow-md: 0 4px 24px rgba(26,20,16,0.10);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--cream);
+    color: var(--ink);
+    min-height: 100vh;
+    display: flex;
+  }
+
+  /* ── SIDEBAR ── */
+  .sidebar {
+    width: 240px;
+    min-height: 100vh;
+    background: var(--ink);
+    color: var(--cream);
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+  }
+
+  .sidebar-logo {
+    padding: 28px 24px 20px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+  }
+
+  .logo-mark {
+    font-family: 'DM Serif Display', serif;
+    font-size: 22px;
+    color: var(--cream);
+    letter-spacing: -0.3px;
+  }
+
+  .logo-mark span {
+    color: var(--terracotta);
+  }
+
+  .logo-sub {
+    font-size: 11px;
+    color: var(--ink-muted);
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    margin-top: 2px;
+  }
+
+  .sidebar-section {
+    padding: 16px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+  }
+
+  .sidebar-label {
+    font-size: 10px;
+    letter-spacing: 1.8px;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+    padding: 0 24px 8px;
+  }
+
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 24px;
+    font-size: 13.5px;
+    font-weight: 400;
+    color: rgba(250,247,242,0.6);
+    cursor: pointer;
+    transition: all 0.15s ease;
+    border-left: 2px solid transparent;
+  }
+
+  .nav-item:hover { color: var(--cream); background: rgba(255,255,255,0.04); }
+
+  .nav-item.active {
+    color: var(--cream);
+    background: rgba(196,92,58,0.12);
+    border-left-color: var(--terracotta);
+    font-weight: 500;
+  }
+
+  .nav-item .icon { font-size: 16px; width: 20px; text-align: center; }
+
+  .badge {
+    margin-left: auto;
+    background: var(--terracotta);
+    color: white;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 7px;
+    border-radius: 10px;
+  }
+
+  .clinic-info {
+    margin-top: auto;
+    padding: 20px 24px;
+    border-top: 1px solid rgba(255,255,255,0.08);
+  }
+
+  .clinic-name {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--cream);
+  }
+
+  .clinic-sub {
+    font-size: 11.5px;
+    color: var(--ink-muted);
+    margin-top: 2px;
+  }
+
+  .online-dot {
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    background: #4CAF50;
+    border-radius: 50%;
+    margin-right: 5px;
+  }
+
+  /* ── MAIN ── */
+  .main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .topbar {
+    background: var(--warm-white);
+    border-bottom: 1px solid var(--border);
+    padding: 0 32px;
+    height: 64px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-shrink: 0;
+  }
+
+  .topbar-title {
+    font-family: 'DM Serif Display', serif;
+    font-size: 20px;
+    color: var(--ink);
+    flex: 1;
+  }
+
+  .date-chip {
+    background: var(--cream);
+    border: 1px solid var(--border);
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 13px;
+    color: var(--ink-soft);
+    font-weight: 500;
+  }
+
+  .topbar-btn {
+    background: var(--terracotta);
+    color: white;
+    border: none;
+    padding: 9px 18px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
+    transition: background 0.15s;
+  }
+
+  .topbar-btn:hover { background: #B04E30; }
+
+  .content {
+    padding: 28px 32px;
+    overflow-y: auto;
+    flex: 1;
+  }
+
+  /* ── TABS ── */
+  .tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 24px;
+    background: var(--warm-white);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 4px;
+    width: fit-content;
+  }
+
+  .tab {
+    padding: 8px 20px;
+    border-radius: 7px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    color: var(--ink-muted);
+    transition: all 0.15s;
+    border: none;
+    background: none;
+    font-family: 'DM Sans', sans-serif;
+  }
+
+  .tab.active {
+    background: var(--ink);
+    color: var(--cream);
+  }
+
+  .tab:hover:not(.active) { color: var(--ink); }
+
+  /* ── STAT CARDS ── */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 28px;
+  }
+
+  .stat-card {
+    background: var(--warm-white);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.15s, box-shadow 0.15s;
+  }
+
+  .stat-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+
+  .stat-label {
+    font-size: 11.5px;
+    letter-spacing: 0.5px;
+    color: var(--ink-muted);
+    text-transform: uppercase;
+    font-weight: 500;
+  }
+
+  .stat-value {
+    font-family: 'DM Serif Display', serif;
+    font-size: 38px;
+    color: var(--ink);
+    line-height: 1;
+    margin: 8px 0 6px;
+  }
+
+  .stat-delta {
+    font-size: 12px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .delta-up { color: var(--sage); }
+  .delta-down { color: var(--terracotta); }
+
+  .stat-accent {
+    position: absolute;
+    bottom: -10px;
+    right: -10px;
+    font-size: 54px;
+    opacity: 0.05;
+  }
+
+  /* ── PANELS ── */
+  .panel-grid {
+    display: grid;
+    grid-template-columns: 1.6fr 1fr;
+    gap: 20px;
+    margin-bottom: 20px;
+  }
+
+  .panel {
+    background: var(--warm-white);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+  }
+
+  .panel-header {
+    padding: 18px 22px 14px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .panel-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--ink);
+  }
+
+  .panel-action {
+    font-size: 12px;
+    color: var(--terracotta);
+    cursor: pointer;
+    font-weight: 500;
+  }
+
+  .panel-body { padding: 18px 22px; }
+
+  /* ── APPOINTMENT LIST ── */
+  .appt-item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+    animation: slideIn 0.3s ease both;
+  }
+
+  .appt-item:last-child { border-bottom: none; }
+
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateX(-8px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+
+  .appt-time {
+    min-width: 52px;
+    text-align: center;
+  }
+
+  .appt-time-main {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--ink);
+  }
+
+  .appt-time-period {
+    font-size: 10px;
+    color: var(--ink-muted);
+  }
+
+  .appt-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 600;
+    flex-shrink: 0;
+  }
+
+  .appt-info { flex: 1; }
+
+  .appt-name {
+    font-size: 13.5px;
+    font-weight: 500;
+    color: var(--ink);
+  }
+
+  .appt-detail {
+    font-size: 12px;
+    color: var(--ink-muted);
+    margin-top: 1px;
+  }
+
+  .status-pill {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 20px;
+    letter-spacing: 0.2px;
+  }
+
+  .status-confirmed { background: var(--sage-light); color: var(--sage); }
+  .status-pending { background: var(--amber-light); color: var(--amber); }
+  .status-cancelled { background: var(--terracotta-light); color: var(--terracotta); }
+  .status-completed { background: #E8E0D8; color: var(--ink-soft); }
+
+  .appt-actions {
+    display: flex;
+    gap: 6px;
+  }
+
+  .icon-btn {
+    width: 30px;
+    height: 30px;
+    border-radius: 7px;
+    border: 1px solid var(--border);
+    background: var(--cream);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 13px;
+    transition: all 0.15s;
+    color: var(--ink-soft);
+  }
+
+  .icon-btn:hover { background: var(--ink); color: white; border-color: var(--ink); }
+
+  /* ── DOCTOR CARDS ── */
+  .doctor-card {
+    padding: 14px 0;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .doctor-card:last-child { border-bottom: none; }
+
+  .doc-avatar {
+    width: 42px;
+    height: 42px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+
+  .doc-info { flex: 1; }
+
+  .doc-name {
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--ink);
+  }
+
+  .doc-specialty {
+    font-size: 11.5px;
+    color: var(--ink-muted);
+    margin-top: 1px;
+  }
+
+  .doc-load {
+    font-size: 11px;
+    color: var(--ink-soft);
+    text-align: right;
+    margin-right: 12px;
+    min-width: 60px;
+  }
+
+  .doc-load span {
+    display: block;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--ink);
+  }
+
+  /* ── TOGGLE ── */
+  .toggle {
+    position: relative;
+    width: 40px;
+    height: 22px;
+    flex-shrink: 0;
+  }
+
+  .toggle input { opacity: 0; width: 0; height: 0; }
+
+  .toggle-track {
+    position: absolute;
+    cursor: pointer;
+    inset: 0;
+    background: #D4C9BD;
+    border-radius: 22px;
+    transition: 0.25s;
+  }
+
+  .toggle-track::before {
+    content: '';
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    left: 3px;
+    top: 3px;
+    background: white;
+    border-radius: 50%;
+    transition: 0.25s;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  }
+
+  .toggle input:checked + .toggle-track { background: var(--sage); }
+  .toggle input:checked + .toggle-track::before { transform: translateX(18px); }
+
+  /* ── CALENDAR STRIP ── */
+  .cal-strip {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    scrollbar-width: none;
+    margin-bottom: 18px;
+  }
+
+  .cal-strip::-webkit-scrollbar { display: none; }
+
+  .cal-day {
+    min-width: 52px;
+    padding: 10px 6px;
+    border-radius: 10px;
+    text-align: center;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: all 0.15s;
+  }
+
+  .cal-day:hover { border-color: var(--border); background: var(--cream); }
+
+  .cal-day.today {
+    background: var(--ink);
+    color: var(--cream);
+  }
+
+  .cal-day.has-appts { border-color: var(--terracotta-light); }
+
+  .cal-day-name {
+    font-size: 10px;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    opacity: 0.6;
+    margin-bottom: 4px;
+  }
+
+  .cal-day-num {
+    font-family: 'DM Serif Display', serif;
+    font-size: 20px;
+    line-height: 1;
+  }
+
+  .cal-dot {
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: var(--terracotta);
+    margin: 4px auto 0;
+  }
+
+  .cal-day.today .cal-dot { background: var(--terracotta-light); }
+
+  /* ── NOTIFICATION PANEL ── */
+  .notif-item {
+    display: flex;
+    gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+    align-items: flex-start;
+  }
+
+  .notif-item:last-child { border-bottom: none; }
+
+  .notif-icon {
+    width: 34px;
+    height: 34px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 15px;
+    flex-shrink: 0;
+  }
+
+  .notif-text { flex: 1; }
+
+  .notif-title { font-size: 13px; font-weight: 500; color: var(--ink); }
+  .notif-sub { font-size: 12px; color: var(--ink-muted); margin-top: 1px; }
+  .notif-time { font-size: 11px; color: var(--ink-muted); white-space: nowrap; }
+
+  /* ── SCHEDULE VIEW ── */
+  .schedule-grid {
+    display: grid;
+    grid-template-columns: 60px repeat(5, 1fr);
+    gap: 0;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  .sched-header {
+    background: var(--cream);
+    padding: 12px 8px;
+    text-align: center;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ink-soft);
+    border-bottom: 1px solid var(--border);
+    border-right: 1px solid var(--border);
+  }
+
+  .sched-header:last-child { border-right: none; }
+  .sched-header.today-col { background: var(--terracotta-pale); color: var(--terracotta); }
+
+  .sched-time {
+    padding: 10px 8px;
+    text-align: center;
+    font-size: 11px;
+    color: var(--ink-muted);
+    border-right: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    background: var(--cream);
+  }
+
+  .sched-cell {
+    padding: 4px;
+    border-right: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    min-height: 48px;
+    position: relative;
+  }
+
+  .sched-cell:last-child { border-right: none; }
+
+  .sched-appt {
+    border-radius: 6px;
+    padding: 4px 7px;
+    font-size: 11px;
+    font-weight: 500;
+    line-height: 1.3;
+    height: 100%;
+    min-height: 40px;
+    cursor: pointer;
+    transition: opacity 0.15s;
+  }
+
+  .sched-appt:hover { opacity: 0.85; }
+  .appt-terra { background: var(--terracotta-light); color: var(--terracotta); }
+  .appt-sage { background: var(--sage-light); color: var(--sage); }
+  .appt-sky { background: var(--sky-light); color: var(--sky); }
+  .appt-amber { background: var(--amber-light); color: var(--amber); }
+
+  /* ── NOTIFICATION SCHEDULE ── */
+  .reminder-card {
+    background: var(--warm-white);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+    margin-bottom: 20px;
+  }
+
+  .reminder-timeline {
+    padding: 20px 22px;
+    display: flex;
+    gap: 0;
+    position: relative;
+  }
+
+  .reminder-timeline::before {
+    content: '';
+    position: absolute;
+    top: 42px;
+    left: 52px;
+    right: 52px;
+    height: 2px;
+    background: var(--border);
+    z-index: 0;
+  }
+
+  .reminder-step {
+    flex: 1;
+    text-align: center;
+    position: relative;
+    z-index: 1;
+  }
+
+  .reminder-dot {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    margin: 0 auto 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    border: 2px solid white;
+  }
+
+  .reminder-when { font-size: 13px; font-weight: 600; color: var(--ink); }
+  .reminder-desc { font-size: 11.5px; color: var(--ink-muted); margin-top: 3px; line-height: 1.4; }
+
+  /* ── MODALS ── */
+  .modal-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(26,20,16,0.4);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(4px);
+    animation: fadeIn 0.2s ease;
+  }
+
+  .modal-backdrop.open { display: flex; }
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  .modal {
+    background: var(--warm-white);
+    border-radius: 18px;
+    width: 480px;
+    max-width: 92vw;
+    box-shadow: 0 20px 60px rgba(26,20,16,0.2);
+    animation: modalIn 0.25s ease;
+  }
+
+  @keyframes modalIn {
+    from { opacity: 0; transform: translateY(16px) scale(0.97); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  .modal-header {
+    padding: 22px 24px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .modal-title {
+    font-family: 'DM Serif Display', serif;
+    font-size: 18px;
+  }
+
+  .modal-close {
+    width: 30px;
+    height: 30px;
+    border-radius: 7px;
+    background: var(--cream);
+    border: 1px solid var(--border);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    color: var(--ink-soft);
+  }
+
+  .modal-body { padding: 20px 24px; }
+  .modal-footer { padding: 16px 24px; border-top: 1px solid var(--border); display: flex; gap: 10px; justify-content: flex-end; }
+
+  .form-group { margin-bottom: 16px; }
+  .form-label { font-size: 12px; font-weight: 600; color: var(--ink-soft); margin-bottom: 6px; display: block; text-transform: uppercase; letter-spacing: 0.5px; }
+  .form-input {
+    width: 100%;
+    padding: 10px 14px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 14px;
+    font-family: 'DM Sans', sans-serif;
+    color: var(--ink);
+    background: var(--cream);
+    transition: border-color 0.15s;
+    outline: none;
+  }
+  .form-input:focus { border-color: var(--terracotta); }
+
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+
+  .btn {
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-size: 13.5px;
+    font-weight: 500;
+    cursor: pointer;
+    border: none;
+    font-family: 'DM Sans', sans-serif;
+    transition: all 0.15s;
+  }
+
+  .btn-primary { background: var(--terracotta); color: white; }
+  .btn-primary:hover { background: #B04E30; }
+  .btn-ghost { background: var(--cream); color: var(--ink-soft); border: 1px solid var(--border); }
+  .btn-ghost:hover { background: var(--border); }
+
+  /* ── SECTION VIEWS ── */
+  .view { display: none; }
+  .view.active { display: block; }
+
+  /* ── EMPTY / SEARCH ── */
+  .search-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--cream);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 9px 14px;
+    margin-bottom: 20px;
+  }
+
+  .search-bar input {
+    border: none;
+    background: none;
+    outline: none;
+    font-size: 13.5px;
+    font-family: 'DM Sans', sans-serif;
+    color: var(--ink);
+    flex: 1;
+  }
+
+  .search-bar input::placeholder { color: var(--ink-muted); }
+
+  /* ── FULL APPT TABLE ── */
+  .appt-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .appt-table th {
+    text-align: left;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--ink-muted);
+    font-weight: 600;
+    padding: 0 16px 12px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .appt-table td {
+    padding: 14px 16px;
+    font-size: 13.5px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+  }
+
+  .appt-table tr:last-child td { border-bottom: none; }
+  .appt-table tbody tr { transition: background 0.1s; cursor: pointer; }
+  .appt-table tbody tr:hover { background: var(--cream); }
+
+  /* ── WHATSAPP PREVIEW ── */
+  .wa-preview {
+    background: #ECE5DD;
+    border-radius: 14px;
+    padding: 16px;
+    font-family: -apple-system, sans-serif;
+  }
+
+  .wa-msg {
+    background: white;
+    border-radius: 0 8px 8px 8px;
+    padding: 10px 14px;
+    max-width: 85%;
+    font-size: 13px;
+    line-height: 1.5;
+    color: #111;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+    margin-bottom: 8px;
+    position: relative;
+  }
+
+  .wa-msg-time {
+    font-size: 11px;
+    color: #7A7A7A;
+    text-align: right;
+    margin-top: 4px;
+  }
+
+  .wa-label {
+    font-size: 11px;
+    color: var(--ink-muted);
+    text-align: center;
+    margin-bottom: 10px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+  }
+
+  /* ── DOCTOR MANAGEMENT ── */
+  .doc-management-card {
+    background: var(--warm-white);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+    margin-bottom: 16px;
+  }
+
+  .doc-full-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 18px 22px;
+    border-bottom: 1px solid var(--border);
+    transition: background 0.15s;
+  }
+
+  .doc-full-row:last-child { border-bottom: none; }
+  .doc-full-row:hover { background: var(--cream); }
+
+  .doc-availability-pills {
+    display: flex;
+    gap: 6px;
+    margin-left: auto;
+    margin-right: 16px;
+  }
+
+  .avail-pill {
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 500;
+    background: var(--cream);
+    border: 1px solid var(--border);
+    color: var(--ink-muted);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .avail-pill.active { background: var(--sage-light); border-color: var(--sage); color: var(--sage); }
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-mark">Phila<span>Connect</span></div>
+    <div class="logo-sub">Clinic Portal</div>
+  </div>
+
+  <div class="sidebar-section">
+    <div class="sidebar-label">Overview</div>
+    <div class="nav-item active" onclick="showView('dashboard', this)">
+      <span class="icon">⊞</span> Dashboard
+    </div>
+    <div class="nav-item" onclick="showView('appointments', this)">
+      <span class="icon">📅</span> Appointments
+      <span class="badge">{{ appointments|length }}</span>
+    </div>
+    <div class="nav-item" onclick="showView('schedule', this)">
+      <span class="icon">🗓</span> Schedule
+    </div>
+  </div>
+
+  <div class="sidebar-section">
+    <div class="sidebar-label">Clinic</div>
+    <div class="nav-item" onclick="showView('doctors', this)">
+      <span class="icon">👩‍⚕️</span> Doctors
+    </div>
+    <div class="nav-item" onclick="showView('patients', this)">
+      <span class="icon">👥</span> Patients
+    </div>
+    <div class="nav-item" onclick="showView('notifications', this)">
+      <span class="icon">💬</span> Reminders
+    </div>
+  </div>
+
+  <div class="sidebar-section">
+    <div class="sidebar-label">System</div>
+    <div class="nav-item">
+      <span class="icon">⚙️</span> Settings
+    </div>
+    <div class="nav-item">
+      <span class="icon">📊</span> Reports
+    </div>
+  </div>
+
+  <div class="clinic-info">
+    <div style="margin-bottom:6px;"><span class="online-dot"></span><span style="font-size:11px;color:#4CAF50;font-weight:500;">Bot Online</span></div>
+    <div class="clinic-name">{{ hospitals[0][1] if hospitals else 'The Riverside Cottage' }}</div>
+    <div class="clinic-sub">Cape Town, WC</div>
+  </div>
+</aside>
+
+<!-- MAIN -->
+<main class="main">
+  <div class="topbar">
+    <div class="topbar-title" id="pageTitle">Today's Overview</div>
+    <div class="date-chip" id="currentDate">—</div>
+    <button class="topbar-btn" onclick="openModal('newAppt')">+ New Appointment</button>
+  </div>
+
+  <div class="content">
+
+    <!-- ══ DASHBOARD VIEW ══ -->
+    <div class="view active" id="view-dashboard">
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-label">Today's Appointments</div>
+          <div class="stat-value">{{ appointments|length }}</div>
+          <div class="stat-delta delta-up">▲ 3 from yesterday</div>
+          <div class="stat-accent">📅</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Doctors On Duty</div>
+          <div class="stat-value">{{ doctors|selectattr('is_active', 'equalto', 1)|list|length }}</div>
+          <div class="stat-delta" style="color:var(--ink-muted)">of {{ doctors|length }} available</div>
+          <div class="stat-accent">👩‍⚕️</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Pending Confirmations</div>
+          <div class="stat-value">5</div>
+          <div class="stat-delta delta-down">▼ needs action</div>
+          <div class="stat-accent">⏳</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Reminders Sent Today</div>
+          <div class="stat-value">24</div>
+          <div class="stat-delta delta-up">▲ 96% delivered</div>
+          <div class="stat-accent">💬</div>
+        </div>
+      </div>
+
+      <div class="panel-grid">
+        <!-- UPCOMING APPOINTMENTS -->
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title">Upcoming Today</div>
+            <div class="panel-action" onclick="showView('appointments', document.querySelector('.nav-item:nth-child(2)'))">View all →</div>
+          </div>
+          <div class="panel-body" style="padding-top:6px;padding-bottom:6px;">
+            {% for appt in appointments[:5] %}
+            <div class="appt-item">
+              <div class="appt-time"><div class="appt-time-main">{{ appt[5].split(':')[0] }}:{{ appt[5].split(':')[1] }}</div><div class="appt-time-period">{{ 'AM' if int(appt[5].split(':')[0]) < 12 else 'PM' }}</div></div>
+              <div class="appt-avatar" style="background:var(--terracotta-light);color:var(--terracotta)">{{ appt[1][:2].upper() }}</div>
+              <div class="appt-info"><div class="appt-name">{{ appt[1] }}</div><div class="appt-detail">{{ appt[2] }} · {{ appt[3] }}</div></div>
+              <span class="status-pill status-confirmed">Confirmed</span>
+              <div class="appt-actions"><div class="icon-btn" onclick="openModal('apptDetail')" title="View">👁</div><div class="icon-btn" title="Reschedule">↺</div></div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+
+        <!-- DOCTOR STATUS -->
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title">Doctor Status</div>
+            <div class="panel-action" onclick="showView('doctors', null)">Manage →</div>
+          </div>
+          <div class="panel-body" style="padding-top:6px;padding-bottom:6px;">
+            {% for doc in doctors %}
+            <div class="doctor-card">
+              <div class="doc-avatar" style="background:var(--terracotta-light);color:var(--terracotta)">{{ doc[1][:2].upper() }}</div>
+              <div class="doc-info">
+                <div class="doc-name">{{ doc[1] }}</div>
+                <div class="doc-specialty">{{ doc[2] }}</div>
+              </div>
+              <div class="doc-load"><span>{{ appointments|selectattr('doctor_id', 'equalto', doc[0])|list|length }}</span>today</div>
+              <label class="toggle"><input type="checkbox" {{ 'checked' if doc[4] else '' }} onchange="toggleDoc(this, '{{ doc[0] }}')"><span class="toggle-track"></span></label>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+
+      <!-- NOTIFICATION SUMMARY -->
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title">Recent WhatsApp Reminders</div>
+          <div class="panel-action" onclick="showView('notifications', null)">Configure →</div>
+        </div>
+        <div class="panel-body" style="padding-top:4px;padding-bottom:4px;">
+          <div class="notif-item">
+            <div class="notif-icon" style="background:var(--sage-light);">✅</div>
+            <div class="notif-text">
+              <div class="notif-title">48-hour reminder sent · Sample Patient</div>
+              <div class="notif-sub">Appointment: Tomorrow 08:00 AM · Dr. Kotzé-Scott · Delivered ✓</div>
+            </div>
+            <div class="notif-time">08:05 AM</div>
+          </div>
+          <div class="notif-item">
+            <div class="notif-icon" style="background:var(--amber-light);">⏰</div>
+            <div class="notif-text">
+              <div class="notif-title">Morning-of reminder sent · Sample Patient</div>
+              <div class="notif-sub">Today 09:30 AM · Dr. Awe · Delivered ✓</div>
+            </div>
+            <div class="notif-time">07:00 AM</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ APPOINTMENTS VIEW ══ -->
+    <div class="view" id="view-appointments">
+      <div class="tabs">
+        <button class="tab active" onclick="filterAppts('all', this)">All ({{ appointments|length }})</button>
+        <button class="tab" onclick="filterAppts('confirmed', this)">Confirmed ({{ appointments|selectattr('status', 'equalto', 'booked')|list|length }})</button>
+        <button class="tab" onclick="filterAppts('pending', this)">Pending (0)</button>
+        <button class="tab" onclick="filterAppts('cancelled', this)">Cancelled (0)</button>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title">Today's Appointments — <span id="apptDateLabel">Sat 21 March 2026</span></div>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <select class="form-input" style="width:auto;padding:6px 12px;font-size:12.5px;">
+              <option>All Doctors</option>
+              {% for doc in doctors %}
+              <option>{{ doc[1] }}</option>
+              {% endfor %}
+            </select>
+            <button class="topbar-btn" onclick="openModal('newAppt')" style="padding:8px 14px;font-size:12.5px;">+ Add</button>
+          </div>
+        </div>
+        <div class="panel-body" style="padding:0 22px;">
+          <table class="appt-table">
+            <thead>
+              <tr>
+                <th>Time</th><th>Patient</th><th>Doctor</th><th>Type</th><th>Status</th><th>Reminder</th><th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="apptTableBody">
+              {% for appt in appointments %}
+              <tr onclick="openModal('apptDetail')">
+                <td><strong>{{ appt[5] }}</strong></td>
+                <td><div style="display:flex;align-items:center;gap:9px;">
+                  <div style="width:30px;height:30px;border-radius:50%;background:var(--terracotta-light);color:var(--terracotta);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;">{{ appt[1][:2].upper() }}</div>
+                  <span>{{ appt[1] }}</span></div></td>
+                <td>{{ appt[2] }}</td>
+                <td>General</td>
+                <td><span class="status-pill status-confirmed">Confirmed</span></td>
+                <td style="font-size:12px;color:var(--ink-muted);">Morning sent ✓</td>
+                <td><div style="display:flex;gap:5px;"><div class="icon-btn">👁</div><div class="icon-btn">↺</div><div class="icon-btn">✕</div></div></td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ DOCTORS VIEW ══ -->
+    <div class="view" id="view-doctors">
+      <div class="stats-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:20px;">
+        <div class="stat-card">
+          <div class="stat-label">Active Today</div>
+          <div class="stat-value" style="font-size:32px;">{{ doctors|selectattr('is_active', 'equalto', 1)|list|length }}/{{ doctors|length }}</div>
+          <div class="stat-delta" style="color:var(--ink-muted);">doctors on duty</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Total Appointments</div>
+          <div class="stat-value" style="font-size:32px;">{{ appointments|length }}</div>
+          <div class="stat-delta delta-up;">across all doctors</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Avg Load Per Doctor</div>
+          <div class="stat-value" style="font-size:32px;">{{ (appointments|length / doctors|length)|round(1) if doctors else 0 }}</div>
+          <div class="stat-delta" style="color:var(--ink-muted);">appointments today</div>
+        </div>
+      </div>
+
+      <div class="doc-management-card">
+        <div class="panel-header">
+          <div class="panel-title">Doctor Management</div>
+          <button class="btn btn-primary" style="padding:8px 16px;font-size:12.5px;" onclick="openModal('addDoctor')">+ Add Doctor</button>
+        </div>
+
+        {% set days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] %}
+
+        {% for doc in doctors %}
+        <div class="doc-full-row">
+          <div class="doc-avatar" style="background:var(--terracotta-light);color:var(--terracotta);width:48px;height:48px;font-size:17px;">{{ doc[1][:2].upper() }}</div>
+          <div class="doc-info">
+            <div class="doc-name" style="font-size:15px;">{{ doc[1] }}</div>
+            <div class="doc-specialty">{{ doc[2] }} · {{ appointments|selectattr('doctor_id', 'equalto', doc[0])|list|length }} appts today</div>
+          </div>
+          <div class="doc-availability-pills">
+            {% for day in days %}
+            <span class="avail-pill {{ 'active' if day in (doc[5] or '').split(',') else '' }}" onclick="toggleDay(this, '{{ doc[0] }}', '{{ day }}')">{{ day }}</span>
+            {% endfor %}
+          </div>
+          <label class="toggle" style="transform:scale(1.2);"><input type="checkbox" {{ 'checked' if doc[4] else '' }} onchange="toggleDoc(this, '{{ doc[0] }}')"><span class="toggle-track"></span></label>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- ══ NOTIFICATIONS VIEW ══ -->
+    <div class="view" id="view-notifications">
+      <div class="reminder-card">
+        <div class="panel-header">
+          <div class="panel-title">PhilaConnect Reminder Schedule</div>
+          <span style="font-size:12px;color:var(--ink-muted);">3-touch system · non-intrusive</span>
+        </div>
+        <div class="reminder-timeline">
+          <div class="reminder-step">
+            <div class="reminder-dot" style="background:var(--sky-light);color:var(--sky);">📋</div>
+            <div class="reminder-when">48 Hours Before</div>
+            <div class="reminder-desc">Appointment details + easy reschedule link. Sent at booking time or 10am if already within window.</div>
+          </div>
+          <div class="reminder-step">
+            <div class="reminder-dot" style="background:var(--amber-light);color:var(--amber);">🌅</div>
+            <div class="reminder-when">Morning Of</div>
+            <div class="reminder-desc">Friendly same-day reminder at 7:00 AM with doctor name, time, and what to bring.</div>
+          </div>
+          <div class="reminder-step">
+            <div class="reminder-dot" style="background:var(--terracotta-light);color:var(--terracotta);">⏱</div>
+            <div class="reminder-when">1 Hour Before</div>
+            <div class="reminder-desc">Final nudge. Includes clinic address and parking/transport tip. Option to confirm arrival.</div>
+          </div>
+        </div>
+        <div style="padding:0 22px 18px;font-size:12.5px;color:var(--ink-muted);border-top:1px solid var(--border);padding-top:14px;margin-top:0;">
+          <strong style="color:var(--ink-soft);">Why 3 messages?</strong> Research shows 4+ reminders increase opt-outs. The 48hr message captures those who need to rearrange work/transport; the morning-of covers sleep-forgetting; the 1hr message prevents no-shows while there's still time to act. No redundant "day before evening" message — covered by morning-of instead.
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+        <div class="panel">
+          <div class="panel-header"><div class="panel-title">Message Previews</div>
+            <div style="display:flex;gap:6px;">
+              <button class="tab active" onclick="showMsg('48h',this)" style="padding:5px 12px;font-size:12px;">48hr</button>
+              <button class="tab" onclick="showMsg('morning',this)" style="padding:5px 12px;font-size:12px;">Morning</button>
+              <button class="tab" onclick="showMsg('1hr',this)" style="padding:5px 12px;font-size:12px;">1 Hour</button>
+            </div>
+          </div>
+          <div class="panel-body">
+            <div class="wa-preview">
+              <div class="wa-label">PhilaConnect Bot</div>
+              <div class="wa-msg" id="waMsg">
+                Sawubona Patient 👋<br><br>
+                This is a reminder of your appointment at <strong>{{ hospitals[0][1] if hospitals else 'The Riverside Cottage' }}</strong> in <strong>2 days</strong>.<br><br>
+                📅 Thursday, 23 March<br>
+                🕗 08:00 AM<br>
+                👩‍⚕️ Dr. Kotzé-Scott — General<br><br>
+                Need to reschedule? Reply <strong>RESCHEDULE</strong> or tap the link below. Otherwise, we'll see you there! ✅
+                <div class="wa-msg-time">08:05 ✓✓</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-header"><div class="panel-title">Reminder Stats</div></div>
+          <div class="panel-body">
+            <div style="margin-bottom:18px;">
+              <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px;">
+                <span style="color:var(--ink-soft);">Delivery rate</span>
+                <span style="font-weight:600;">96%</span>
+              </div>
+              <div style="background:var(--border);border-radius:20px;height:7px;overflow:hidden;">
+                <div style="background:var(--sage);width:96%;height:100%;border-radius:20px;"></div>
+              </div>
+            </div>
+            <div style="margin-bottom:18px;">
+              <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px;">
+                <span style="color:var(--ink-soft);">Reschedule rate (48hr msg)</span>
+                <span style="font-weight:600;">14%</span>
+              </div>
+              <div style="background:var(--border);border-radius:20px;height:7px;overflow:hidden;">
+                <div style="background:var(--sky);width:14%;height:100%;border-radius:20px;"></div>
+              </div>
+            </div>
+            <div style="margin-bottom:18px;">
+              <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px;">
+                <span style="color:var(--ink-soft);">No-show reduction</span>
+                <span style="font-weight:600;">−38%</span>
+              </div>
+              <div style="background:var(--border);border-radius:20px;height:7px;overflow:hidden;">
+                <div style="background:var(--terracotta);width:38%;height:100%;border-radius:20px;"></div>
+              </div>
+            </div>
+            <div style="background:var(--cream);border-radius:10px;padding:14px;font-size:12.5px;line-height:1.6;color:var(--ink-soft);">
+              📊 <strong>This week:</strong> 72 reminders sent · 69 delivered · 10 rescheduled · 3 no-shows
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<!-- MODAL: NEW APPOINTMENT -->
+<div class="modal-backdrop" id="modal-newAppt">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">New Appointment</div>
+      <div class="modal-close" onclick="closeModal('newAppt')">✕</div>
+    </div>
+    <form method="post" action="/add_appointment">
+      <div class="modal-body">
+        <div class="form-row">
+          <div class="form-group"><label class="form-label">Patient Name</label><input class="form-input" name="patient_name" placeholder="Full name" required></div>
+          <div class="form-group"><label class="form-label">Phone (WhatsApp)</label><input class="form-input" name="phone" placeholder="+27 XX XXX XXXX" required></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label class="form-label">Date</label><input class="form-input" name="date" type="date" required></div>
+          <div class="form-group"><label class="form-label">Time</label><input class="form-input" name="time" type="time" required></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label class="form-label">Doctor</label>
+            <select class="form-input" name="doctor_id" required>
+              {% for doc in doctors %}
+              <option value="{{ doc[0] }}">{{ doc[1] }} — {{ doc[2] }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-group"><label class="form-label">Appointment Type</label>
+            <select class="form-input" name="type"><option>General Consultation</option><option>Follow-up</option><option>Chronic Disease</option><option>Emergency</option><option>Maternal Health</option></select>
+          </div>
+        </div>
+        <div class="form-group"><label class="form-label">Notes</label><input class="form-input" name="notes" placeholder="Optional notes for the doctor"></div>
+        <div style="background:var(--sage-light);border-radius:8px;padding:12px 14px;font-size:12.5px;color:var(--sage);margin-top:4px;">
+          ✅ WhatsApp reminders will be sent automatically: 48hrs before, morning of, and 1 hour before.
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" type="button" onclick="closeModal('newAppt')">Cancel</button>
+        <button class="btn btn-primary" type="submit">Book Appointment</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- MODAL: APPOINTMENT DETAIL -->
+<div class="modal-backdrop" id="modal-apptDetail">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Appointment Details</div>
+      <div class="modal-close" onclick="closeModal('apptDetail')">✕</div>
+    </div>
+    <div class="modal-body">
+      <div style="display:flex;align-items:center;gap:14px;margin-bottom:20px;padding:16px;background:var(--cream);border-radius:10px;">
+        <div class="appt-avatar" style="width:50px;height:50px;font-size:18px;background:var(--terracotta-light);color:var(--terracotta);">NM</div>
+        <div>
+          <div style="font-size:17px;font-weight:600;">Nolwazi Mthembu</div>
+          <div style="font-size:13px;color:var(--ink-muted);">+27 71 234 5678 · ID: 8901234567890</div>
+        </div>
+        <span class="status-pill status-confirmed" style="margin-left:auto;">Confirmed</span>
+      </div>
+      <div class="form-row">
+        <div><div class="form-label">Date & Time</div><div style="font-size:14px;font-weight:500;">Sat 21 March · 08:00 AM</div></div>
+        <div><div class="form-label">Doctor</div><div style="font-size:14px;font-weight:500;">Dr. Dlamini</div></div>
+      </div>
+      <div style="margin-top:14px;"><div class="form-label">Reminder Status</div>
+        <div style="display:flex;flex-direction:column;gap:7px;margin-top:8px;">
+          <div style="display:flex;align-items:center;gap:8px;font-size:13px;"><span style="color:var(--sage);">✓</span> 48-hour reminder sent — Mar 19, 08:05 AM</div>
+          <div style="display:flex;align-items:center;gap:8px;font-size:13px;"><span style="color:var(--sage);">✓</span> Morning-of reminder sent — Mar 21, 07:00 AM</div>
+          <div style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ink-muted);">⏳ 1-hour reminder — scheduled 07:00 AM</div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('apptDetail')">Close</button>
+      <button class="btn" style="background:var(--amber-light);color:var(--amber);" onclick="closeModal('apptDetail')">Reschedule</button>
+      <button class="btn" style="background:var(--terracotta-light);color:var(--terracotta);" onclick="closeModal('apptDetail')">Cancel Appt</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: ADD DOCTOR -->
+<div class="modal-backdrop" id="modal-addDoctor">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Add Doctor</div>
+      <div class="modal-close" onclick="closeModal('addDoctor')">✕</div>
+    </div>
+    <form method="post" action="/add_doctor">
+      <div class="modal-body">
+        <div class="form-row">
+          <div class="form-group"><label class="form-label">First Name</label><input class="form-input" name="first_name" placeholder="e.g. Sipho" required></div>
+          <div class="form-group"><label class="form-label">Surname</label><input class="form-input" name="surname" placeholder="e.g. Dlamini" required></div>
+        </div>
+        <div class="form-group"><label class="form-label">Specialty</label>
+          <select class="form-input" name="specialty"><option>General Practice</option><option>Paediatrics</option><option>Obstetrics</option><option>Mental Health</option><option>Chronic Disease</option><option>Emergency</option></select>
+        </div>
+        <div class="form-group"><label class="form-label">Available Days</label>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px;">
+            <span class="avail-pill active" onclick="this.classList.toggle('active')">Mon</span>
+            <span class="avail-pill active" onclick="this.classList.toggle('active')">Tue</span>
+            <span class="avail-pill active" onclick="this.classList.toggle('active')">Wed</span>
+            <span class="avail-pill active" onclick="this.classList.toggle('active')">Thu</span>
+            <span class="avail-pill" onclick="this.classList.toggle('active')">Fri</span>
+            <span class="avail-pill" onclick="this.classList.toggle('active')">Sat</span>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" type="button" onclick="closeModal('addDoctor')">Cancel</button>
+        <button class="btn btn-primary" type="submit">Add Doctor</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  // ── INIT ──
+  const dateEl = document.getElementById('currentDate');
+  const apptDateLabel = document.getElementById('apptDateLabel');
+  const now = new Date();
+  const opts = { weekday:'short', day:'numeric', month:'long', year:'numeric' };
+  const ds = now.toLocaleDateString('en-ZA', opts);
+  dateEl.textContent = ds;
+  if (apptDateLabel) apptDateLabel.textContent = ds;
+
+  // ── VIEWS ──
+  function showView(name, navEl) {
+    document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+    document.getElementById('view-'+name).classList.add('active');
+    document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+    if(navEl) navEl.classList.add('active');
+
+    const titles = {dashboard:'Today\'s Overview',appointments:'Appointments',schedule:'Weekly Schedule',doctors:'Doctor Management',patients:'Patients',notifications:'Reminder Settings'};
+    document.getElementById('pageTitle').textContent = titles[name]||name;
+    if(name==='appointments') renderApptTable();
+  }
+
+  // ── MODALS ──
+  function openModal(id) {
+    document.getElementById('modal-'+id).classList.add('open');
+  }
+
+  function closeModal(id) {
+    document.getElementById('modal-'+id).classList.remove('open');
+  }
+
+  document.querySelectorAll('.modal-backdrop').forEach(m => {
+    m.addEventListener('click', e => { if(e.target===m) m.classList.remove('open'); });
+  });
+
+  // ── DOCTOR TOGGLE ──
+  function toggleDoc(el, name) {
+    const card = el.closest('.doctor-card, .doc-full-row');
+    if(card) {
+      card.style.opacity = el.checked ? '1' : '0.5';
+    }
+    // Would trigger API call in production
+    fetch('/toggle_doctor', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+      body: new URLSearchParams({doctor_id: name, active: el.checked ? 1 : 0})
+    });
+  }
+
+  // ── DAY TOGGLE ──
+  function toggleDay(el, doctorId, day) {
+    el.classList.toggle('active');
+    const row = el.closest('.doc-full-row');
+    const pills = row.querySelectorAll('.avail-pill');
+    const activeDays = Array.from(pills).filter(p => p.classList.contains('active')).map(p => p.textContent).join(',');
+    fetch('/update_doctor_availability', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+      body: new URLSearchParams({doctor_id: doctorId, available_days: activeDays})
+    });
+  }
+
+  // ── WHATSAPP MESSAGES ──
+  const msgs = {
+    '48h': `Sawubona Patient 👋<br><br>This is a reminder of your appointment at <strong>{{ hospitals[0][1] if hospitals else 'The Riverside Cottage' }}</strong> in <strong>2 days</strong>.<br><br>📅 Thursday, 23 March<br>🕗 08:00 AM<br>👩‍⚕️ Dr. Kotzé-Scott — General<br><br>Need to reschedule? Reply <strong>RESCHEDULE</strong> or tap the link below. Otherwise, we'll see you there! ✅<div class="wa-msg-time">08:05 ✓✓</div>`,
+    'morning': `Good morning Patient ☀️<br><br>Just a friendly reminder — you have an appointment <strong>today</strong>!<br><br>🕗 08:00 AM<br>👩‍⚕️ Dr. Kotzé-Scott<br>📍 {{ hospitals[0][1] if hospitals else 'The Riverside Cottage' }}, Site C<br><br>Please bring your <strong>ID/clinic card</strong> and arrive 10 mins early. See you soon!<div class="wa-msg-time">07:00 ✓✓</div>`,
+    '1hr': `Hi Patient, your appointment is in <strong>1 hour</strong> ⏱<br><br>08:00 AM · Dr. Kotzé-Scott · {{ hospitals[0][1] if hospitals else 'The Riverside Cottage' }}<br><br>🚌 Taxi to Station, then 5 min walk<br>🚗 Park at Gate 2<br><br>Running late? Reply <strong>LATE</strong> and we'll let the clinic know. ❤️<div class="wa-msg-time">07:00 ✓✓</div>`
+  };
+
+  function showMsg(type, el) {
+    document.querySelectorAll('#view-notifications .tab').forEach(t=>t.classList.remove('active'));
+    el.classList.add('active');
+    document.getElementById('waMsg').innerHTML = msgs[type];
+  }
+</script>
+</body>
+</html>
