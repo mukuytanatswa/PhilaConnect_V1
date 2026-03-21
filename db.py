@@ -62,13 +62,28 @@ def init_db():
             ('The Riverside Cottage',),
         ]
         c.executemany('INSERT INTO hospitals (name) VALUES (?)', hospitals)
+        conn.commit()
+
+    # Ensure hospital exists
+    c.execute('SELECT id FROM hospitals WHERE name = "The Riverside Cottage"')
+    hosp_row = c.fetchone()
+    if not hosp_row:
+        c.execute('INSERT INTO hospitals (name) VALUES (?)', ('The Riverside Cottage',))
+        conn.commit()
         hospital_id = c.lastrowid
+    else:
+        hospital_id = hosp_row[0]
+
+    # Insert doctors if they don't exist
+    c.execute('SELECT COUNT(*) FROM doctors')
+    if c.fetchone()[0] == 0:
         doctors = [
             ('Dr. Kotzé-Scott', 'General Practice', hospital_id, 'Mon,Tue,Wed,Thu,Fri,Sat,Sun'),
             ('Dr. Awe', 'General Practice', hospital_id, 'Mon,Tue,Wed,Thu,Fri,Sat,Sun'),
             ('Dr. Blumenthal', 'General Practice', hospital_id, 'Mon,Tue,Wed,Thu,Fri,Sat,Sun')
         ]
         c.executemany('INSERT INTO doctors (name, specialty, hospital_id, available_days) VALUES (?, ?, ?, ?)', doctors)
+        conn.commit()
 
     # Update specialties to General Practice
     c.execute('UPDATE doctors SET specialty = "General Practice" WHERE specialty IS NOT NULL')
