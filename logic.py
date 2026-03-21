@@ -47,17 +47,39 @@ def handle_message(data):
 
     # Handling doctor selection
     elif state == "select_doctor":
+        doctors = get_doctors(data.get('hospital_id'))
+        if not doctors:
+            send_message(phone, "No doctors available now, please reply 'hi' to restart.")
+            set_state(phone, None, {})
+            return
+
+        selected_id = None
         try:
-            doctor_id = int(text)
-            doctors = get_doctors(data['hospital_id'])
-            if 1 <= doctor_id <= len(doctors):
-                data['doctor_id'] = doctors[doctor_id-1][0]
-                set_state(phone, "select_date", data)
-                send_dates(phone, data['doctor_id'])
+            doctor_index = int(text)
+            if 1 <= doctor_index <= len(doctors):
+                selected_id = doctors[doctor_index-1][0]
             else:
-                send_message(phone, "Invalid option. Please select a valid doctor number.")
+                send_message(phone, f"Invalid number. Pick 1..{len(doctors)}.")
+                return
         except ValueError:
-            send_message(phone, "Please enter a number.")
+            # allow typing doctor name too
+            matches = [d for d in doctors if text.lower() in d[1].lower()]
+            if len(matches) == 1:
+                selected_id = matches[0][0]
+            elif len(matches) > 1:
+                names = ', '.join(d[1] for d in matches)
+                send_message(phone, f"Multiple match: {names}. Please reply with the number from the list.")
+                return
+            else:
+                send_message(phone, "Please reply with doctor number or exact doctor name.")
+                return
+
+        if selected_id is not None:
+            data['doctor_id'] = selected_id
+            set_state(phone, "select_date", data)
+            send_dates(phone, data['doctor_id'])
+        else:
+            send_message(phone, "Could not find the chosen doctor. Reply with number or name.")
 
     # Handling date selection
     elif state == "select_date":
