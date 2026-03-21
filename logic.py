@@ -61,17 +61,24 @@ def handle_message(data):
 
     # Handling date selection
     elif state == "select_date":
+        if text.lower() == "more":
+            page = data.get('date_page', 0) + 1
+            send_dates(phone, data['doctor_id'], page)
+            return
+
         try:
             date_index = int(text)
             dates = get_available_dates(data['doctor_id'])
-            if 1 <= date_index <= len(dates):
-                data['date'] = dates[date_index-1]
+            page = data.get('date_page', 0)
+            selected_list = dates[page*7:(page+1)*7]
+            if 1 <= date_index <= len(selected_list):
+                data['date'] = selected_list[date_index-1]
                 set_state(phone, "select_time", data)
                 send_times(phone, data['doctor_id'], data['date'])
             else:
-                send_message(phone, "Invalid option. Please select a valid date number.")
+                send_message(phone, "Invalid option. Please select a valid date number from the current page.")
         except ValueError:
-            send_message(phone, "Please enter a number.")
+            send_message(phone, "Please enter a number or 'MORE'.")
 
     # Handling time selection
     elif state == "select_time":
@@ -176,28 +183,48 @@ def send_hospitals(phone):
 def send_doctors(phone, hospital_id):
     doctors = get_doctors(hospital_id)
     if not doctors:
-        send_message(phone, "No doctors available at this hospital right now.")
+        send_message(phone, "No doctors available at this hospital right now. Reply 'hi' to choose another hospital.")
+        set_state(phone, None)
         return
-    msg = "Select a doctor:\n"
+
+    msg = "DOCTOR LIST (choose by number):\n\n"
     for i, (id, name, specialty, available_days) in enumerate(doctors, 1):
-        msg += f"{i}. {name}\n   {specialty}\n"
+        msg += f"{i}. {name} | {specialty} | Days: {available_days}\n"
+    msg += "\nReply with the doctor number (e.g., 1)."
     send_message(phone, msg)
     set_state(phone, "select_doctor")
 
-def send_dates(phone, doctor_id):
+def send_dates(phone, doctor_id, page=0):
     dates = get_available_dates(doctor_id)
-    # Show only next 7 days for cleaner display
-    dates = dates[:7] if dates else []
-    if not dates:
+    page_size = 7
+    total = len(dates)
+    if total == 0:
         send_message(phone, "No available dates for this doctor.")
+        set_state(phone, None)
         return
-    msg = "SELECT A DATE:\n" + "-" * 30 + "\n"
-    for i, date in enumerate(dates, 1):
+
+    start = page * page_size
+    end = start + page_size
+    page_dates = dates[start:end]
+    if not page_dates:
+        send_message(phone, "No more dates available. Reply with 1..7 or 'hi' to restart.")
+        return
+
+    msg = f"SELECT DATE (page {page+1}/{(total+page_size-1)//page_size}):\n"
+    msg += "---------------------------\n"
+    for i, date in enumerate(page_dates, 1):
         day_obj = datetime.strptime(date, '%Y-%m-%d')
-        day_name = day_obj.strftime('%A')  # Monday, Tuesday, etc.
+        day_name = day_obj.strftime('%A')
         msg += f"{i}. {date} ({day_name})\n"
+    if end < total:
+        msg += "\nReply with number 1-7, or text 'MORE' for next set of dates."
+    else:
+        msg += "\nReply with number 1-7 to pick your date."
+
+    data = get_state(phone)[1] or {}
+    data['date_page'] = page
+    set_state(phone, 'select_date', data)
     send_message(phone, msg)
-    set_state(phone, "select_date")
 
 def send_times(phone, doctor_id, date):
     times = get_available_times(doctor_id, date)
