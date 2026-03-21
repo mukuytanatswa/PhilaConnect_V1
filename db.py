@@ -172,12 +172,12 @@ def get_appointments(phone=None, doctor_id=None):
                      WHERE a.phone = ? AND a.status = 'booked'
                      ORDER BY a.date, a.time''', (phone,))
     elif doctor_id:
-        c.execute('''SELECT a.id, a.phone, a.date, a.time, a.status
+        c.execute('''SELECT a.id, a.doctor_id, a.phone, a.date, a.time, a.status
                      FROM appointments a
                      WHERE a.doctor_id = ? AND a.status = 'booked'
                      ORDER BY a.date, a.time''', (doctor_id,))
     else:
-        c.execute('''SELECT a.id, a.phone, d.name, h.name, a.date, a.time, a.status
+        c.execute('''SELECT a.id, a.doctor_id, a.phone, d.name, h.name, a.date, a.time, a.status
                      FROM appointments a
                      JOIN doctors d ON a.doctor_id = d.id
                      JOIN hospitals h ON d.hospital_id = h.id

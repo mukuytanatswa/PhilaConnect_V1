@@ -1,6 +1,7 @@
 from whatsapp import send_message
 from db import set_state, get_state, get_hospitals, get_doctors, get_available_dates, get_available_times, book_appointment, get_appointments, cancel_appointment
 import sqlite3
+from datetime import datetime
 
 def handle_message(data):
     try:
@@ -82,7 +83,7 @@ def handle_message(data):
                 # Book the appointment
                 appointment_id = book_appointment(phone, data['doctor_id'], data['date'], data['time'])
                 set_state(phone, None, {})  # Reset
-                send_message(phone, f"✅ Your appointment is confirmed for {data['date']} at {data['time']}. Appointment ID: {appointment_id}")
+                send_message(phone, f"APPOINTMENT CONFIRMED\n\nDate: {data['date']}\nTime: {data['time']}\nAppointment ID: {appointment_id}\n\nCheck your dashboard for details.")
             else:
                 send_message(phone, "Invalid option. Please select a valid time number.")
         except ValueError:
@@ -96,7 +97,7 @@ def handle_message(data):
             if 1 <= appointment_id <= len(appointments):
                 cancel_appointment(appointments[appointment_id-1][0])
                 set_state(phone, None, {})
-                send_message(phone, "✅ Your appointment has been canceled.")
+                send_message(phone, "APPOINTMENT CANCELED\n\nYour appointment has been canceled. You can book a new one anytime.")
             else:
                 send_message(phone, "Invalid option. Please select a valid appointment number.")
         except ValueError:
@@ -145,7 +146,7 @@ def handle_message(data):
                 conn.commit()
                 conn.close()
                 set_state(phone, None, {})
-                send_message(phone, f"✅ Your appointment has been rescheduled to {data['new_date']} at {data['new_time']}.")
+                send_message(phone, f"APPOINTMENT RESCHEDULED\n\nNew Date: {data['new_date']}\nNew Time: {data['new_time']}")
             else:
                 send_message(phone, "Invalid option. Please select a valid time number.")
         except ValueError:
@@ -174,27 +175,37 @@ def send_hospitals(phone):
 
 def send_doctors(phone, hospital_id):
     doctors = get_doctors(hospital_id)
+    if not doctors:
+        send_message(phone, "No doctors available at this hospital right now.")
+        return
     msg = "Select a doctor:\n"
-    for i, (id, name, specialty) in enumerate(doctors, 1):
+    for i, (id, name, specialty, available_days) in enumerate(doctors, 1):
         msg += f"{i}. {name}\n   {specialty}\n"
     send_message(phone, msg)
-    # State already set
+    set_state(phone, "select_doctor")
 
 def send_dates(phone, doctor_id):
     dates = get_available_dates(doctor_id)
-    msg = "Select a date:\n"
+    # Show only next 7 days for cleaner display
+    dates = dates[:7] if dates else []
+    if not dates:
+        send_message(phone, "No available dates for this doctor.")
+        return
+    msg = "SELECT A DATE:\n" + "-" * 30 + "\n"
     for i, date in enumerate(dates, 1):
-        msg += f"{i}. {date}\n"
+        day_obj = datetime.strptime(date, '%Y-%m-%d')
+        day_name = day_obj.strftime('%A')  # Monday, Tuesday, etc.
+        msg += f"{i}. {date} ({day_name})\n"
     send_message(phone, msg)
-    # State already set
+    set_state(phone, "select_date")
 
 def send_times(phone, doctor_id, date):
     times = get_available_times(doctor_id, date)
-    msg = "Select a time:\n"
+    msg = "SELECT A TIME:\n" + "-" * 30 + "\n"
     for i, time in enumerate(times, 1):
         msg += f"{i}. {time}\n"
     send_message(phone, msg)
-    # State already set
+    set_state(phone, "select_time")
 
 def send_cancel_options(phone):
     appointments = get_appointments(phone=phone)

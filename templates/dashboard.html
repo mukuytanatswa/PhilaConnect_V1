@@ -1043,9 +1043,9 @@
           <div class="panel-body" style="padding-top:6px;padding-bottom:6px;">
             {% for appt in appointments[:5] %}
             <div class="appt-item">
-              <div class="appt-time"><div class="appt-time-main">{{ appt[5].split(':')[0] }}:{{ appt[5].split(':')[1] }}</div><div class="appt-time-period">{{ 'AM' if int(appt[5].split(':')[0]) < 12 else 'PM' }}</div></div>
-              <div class="appt-avatar" style="background:var(--terracotta-light);color:var(--terracotta)">{{ appt[1][:2].upper() }}</div>
-              <div class="appt-info"><div class="appt-name">{{ appt[1] }}</div><div class="appt-detail">{{ appt[2] }} · {{ appt[3] }}</div></div>
+              <div class="appt-time"><div class="appt-time-main">{{ appt[6].split(':')[0] }}:{{ appt[6].split(':')[1] }}</div><div class="appt-time-period">{{ 'AM' if int(appt[6].split(':')[0]) < 12 else 'PM' }}</div></div>
+              <div class="appt-avatar" style="background:var(--terracotta-light);color:var(--terracotta)">{{ appt[3][:2].upper() }}</div>
+              <div class="appt-info"><div class="appt-name">{{ appt[3] }}</div><div class="appt-detail">{{ appt[2] }} · {{ appt[4] }}</div></div>
               <span class="status-pill status-confirmed">Confirmed</span>
               <div class="appt-actions"><div class="icon-btn" onclick="openModal('apptDetail')" title="View">👁</div><div class="icon-btn" title="Reschedule">↺</div></div>
             </div>
@@ -1134,11 +1134,11 @@
             <tbody id="apptTableBody">
               {% for appt in appointments %}
               <tr onclick="openModal('apptDetail')">
-                <td><strong>{{ appt[5] }}</strong></td>
+                <td><strong>{{ appt[6] }}</strong></td>
                 <td><div style="display:flex;align-items:center;gap:9px;">
-                  <div style="width:30px;height:30px;border-radius:50%;background:var(--terracotta-light);color:var(--terracotta);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;">{{ appt[1][:2].upper() }}</div>
-                  <span>{{ appt[1] }}</span></div></td>
-                <td>{{ appt[2] }}</td>
+                  <div style="width:30px;height:30px;border-radius:50%;background:var(--terracotta-light);color:var(--terracotta);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;">{{ appt[2][:2].upper() }}</div>
+                  <span>{{ appt[2] }}</span></div></td>
+                <td>{{ appt[3] }}</td>
                 <td>General</td>
                 <td><span class="status-pill status-confirmed">Confirmed</span></td>
                 <td style="font-size:12px;color:var(--ink-muted);">Morning sent ✓</td>
