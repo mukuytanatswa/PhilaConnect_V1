@@ -1,5 +1,5 @@
 from whatsapp import send_message
-from db import set_state, get_state, get_hospitals, get_doctors, get_available_dates, get_available_times, book_appointment, get_appointments, cancel_appointment
+from db import set_state, get_state, get_hospitals, get_doctors, get_doctors_all, get_available_dates, get_available_times, book_appointment, get_appointments, cancel_appointment
 import sqlite3
 from datetime import datetime
 
@@ -39,7 +39,7 @@ def handle_message(data):
             if 1 <= hospital_id <= len(hospitals):
                 data['hospital_id'] = hospitals[hospital_id-1][0]
                 set_state(phone, "select_doctor", data)
-                send_doctors(phone, data['hospital_id'])
+                send_doctors(phone, data['hospital_id'], data)
             else:
                 send_message(phone, "Invalid option. Please select a valid hospital number.")
         except ValueError:
@@ -96,7 +96,7 @@ def handle_message(data):
             if 1 <= date_index <= len(selected_list):
                 data['date'] = selected_list[date_index-1]
                 set_state(phone, "select_time", data)
-                send_times(phone, data['doctor_id'], data['date'])
+                send_times(phone, data['doctor_id'], data['date'], data)
             else:
                 send_message(phone, "Invalid option. Please select a valid date number from the current page.")
         except ValueError:
@@ -202,11 +202,22 @@ def send_hospitals(phone):
     send_message(phone, msg)
     set_state(phone, "select_hospital")
 
-def send_doctors(phone, hospital_id):
+def send_doctors(phone, hospital_id, context=None):
     doctors = get_doctors(hospital_id)
+
     if not doctors:
-        send_message(phone, "No doctors available at this hospital right now. Reply 'hi' to choose another hospital.")
-        set_state(phone, None)
+        all_docs = get_doctors_all()
+        if not all_docs:
+            send_message(phone, "No doctors are configured yet. Please contact admin.")
+            set_state(phone, None, {})
+            return
+
+        msg = "No active doctors are currently available at this hospital. Showing all doctors:\n\n"
+        for i, (id, name, specialty, _, active, days) in enumerate(all_docs, 1):
+            msg += f"{i}. {name} | {specialty} | Active={bool(active)} | Days={days}\n"
+        msg += "\nReply with the doctor number from this list, or reply 'hi' to restart."
+        send_message(phone, msg)
+        set_state(phone, "select_doctor", context or {})
         return
 
     msg = "DOCTOR LIST (choose by number):\n\n"
@@ -214,7 +225,7 @@ def send_doctors(phone, hospital_id):
         msg += f"{i}. {name} | {specialty} | Days: {available_days}\n"
     msg += "\nReply with the doctor number (e.g., 1)."
     send_message(phone, msg)
-    set_state(phone, "select_doctor")
+    set_state(phone, "select_doctor", context or {})
 
 def send_dates(phone, doctor_id, page=0):
     dates = get_available_dates(doctor_id)
@@ -248,13 +259,13 @@ def send_dates(phone, doctor_id, page=0):
     set_state(phone, 'select_date', data)
     send_message(phone, msg)
 
-def send_times(phone, doctor_id, date):
+def send_times(phone, doctor_id, date, context=None):
     times = get_available_times(doctor_id, date)
     msg = "SELECT A TIME:\n" + "-" * 30 + "\n"
     for i, time in enumerate(times, 1):
         msg += f"{i}. {time}\n"
     send_message(phone, msg)
-    set_state(phone, "select_time")
+    set_state(phone, "select_time", context or {})
 
 def send_cancel_options(phone):
     appointments = get_appointments(phone=phone)

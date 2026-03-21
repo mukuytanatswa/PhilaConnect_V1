@@ -85,6 +85,9 @@ def init_db():
         c.executemany('INSERT INTO doctors (name, specialty, hospital_id, available_days) VALUES (?, ?, ?, ?)', doctors)
         conn.commit()
 
+    # Fix any existing doctor rows with hospital_id 0 to the default clinic ID
+    c.execute('UPDATE doctors SET hospital_id = ? WHERE hospital_id = 0', (hospital_id,))
+
     # Update specialties to General Practice
     c.execute('UPDATE doctors SET specialty = "General Practice" WHERE specialty IS NOT NULL')
     conn.commit()
