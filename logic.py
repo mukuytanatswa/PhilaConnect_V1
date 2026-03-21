@@ -18,16 +18,16 @@ def handle_message(data):
     if text in ["hi", "hello", "hey"]:
         send_menu(phone)
 
-    # User picked option 1 = Book appointment
-    elif text == "1":
+    # User picked option 1 = Book appointment (only if no active state)
+    elif text == "1" and state is None:
         send_hospitals(phone)
 
-    # User picked option 2 = Reschedule
-    elif text == "2":
+    # User picked option 2 = Reschedule (only if no active state)
+    elif text == "2" and state is None:
         send_reschedule_options(phone)
 
-    # User picked option 3 = Cancel
-    elif text == "3":
+    # User picked option 3 = Cancel (only if no active state)
+    elif text == "3" and state is None:
         send_cancel_options(phone)
 
     # Handling hospital selection
