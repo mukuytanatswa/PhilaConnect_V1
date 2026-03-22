@@ -3,7 +3,7 @@ import json
 import os
 
 # Get credentials from environment variables
-TOKEN = os.getenv("WHATSAPP_TOKEN", "EAAcPr81TDkYBREZAXvAKbOYYOGJWeAIY2sFiHFCeOCPH8m9h9d3SvAssbTLEdvtOZBCJwrtrMpG2d0fumEdWrGDO8gYz6dcz1kSf7OiUGvYZCkowvoGKPf316b5JofegKJhfAUxlVO0B6ycK5ZA3V5zY1tAZDZD")
+TOKEN = os.getenv("WHATSAPP_TOKEN", "EAAcPr81TDkYBRB9p4ZAbVt1ptzPPDxwxved6nGrLF5ItE0oSO0MvdWbPoIDjsQlW0j2SY8ZC8h6T7lvueTTQcZA8hjx42IZBkZClQJoPuCsEGz2UoiSyMtcJw6AcFvgq4XRSWjkwQZB0Fri3VpCP8cvUEQBQjMlhwYfuhA7nTDCjJOp5RCWgXHNj7YBe2SdVNZCKQZDZD")
 PHONE_ID = os.getenv("WHATSAPP_PHONE_ID", "1056110920899451")
 
 def send_message(phone, text):
