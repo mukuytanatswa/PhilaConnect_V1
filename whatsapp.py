@@ -8,6 +8,7 @@ PHONE_ID = os.getenv("WHATSAPP_PHONE_ID", "1056110920899451")
 
 def send_message(phone, text):
     """Send message with error logging"""
+    print(f"Sending message to {phone}: {text[:50]}...")  # Debug log
     try:
         url = f"https://graph.facebook.com/v18.0/{PHONE_ID}/messages"
         headers = {
@@ -21,10 +22,13 @@ def send_message(phone, text):
             "text": {"body": text},
         }
         response = requests.post(url, headers=headers, json=payload, timeout=10)
+        print(f"WhatsApp API response status: {response.status_code}")  # Debug
         if response.status_code != 200:
             print(f"WhatsApp API Error: {response.status_code} - {response.text}")
             with open('whatsapp_errors.log', 'a') as f:
                 f.write(f"Error sending to {phone}: {response.status_code}\n{response.text}\n")
+        else:
+            print(f"Message sent successfully to {phone}")  # Debug
         return response.status_code == 200
     except Exception as e:
         print(f"Error sending message to {phone}: {str(e)}")

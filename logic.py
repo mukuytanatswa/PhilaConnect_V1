@@ -44,8 +44,9 @@ def handle_message(data):
     state, data = get_state(phone)
     data = data or {}
 
-    # Only show menu if user explicitly requests it or has no active state
-    if text in ["menu", "start"]:
+    # Show menu for greetings or explicit requests
+    greetings = ["hi", "hello", "hey", "menu", "start", "help"]
+    if text.lower() in greetings:
         send_menu(phone)
         return
 
