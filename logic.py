@@ -76,6 +76,10 @@ def handle_message(data):
         try:
             hospital_id = int(text)
             hospitals = get_hospitals()
+            if not hospitals:
+                send_message(phone, "No hospitals are configured yet. Please contact admin.")
+                set_state(phone, None, {})
+                return
             if 1 <= hospital_id <= len(hospitals):
                 data['hospital_id'] = hospitals[hospital_id-1][0]
                 set_state(phone, "select_doctor", data)
@@ -87,7 +91,11 @@ def handle_message(data):
 
     # Handling doctor selection
     elif state == "select_doctor":
-        doctors = get_doctors(data.get('hospital_id'))
+        if data.get('select_all_doctors'):
+            doctors = get_doctors_all()
+        else:
+            doctors = get_doctors(data.get('hospital_id'))
+
         if not doctors:
             send_message(phone, "No doctors available now, please reply 'hi' to restart.")
             set_state(phone, None, {})
@@ -289,7 +297,11 @@ def send_doctors(phone, hospital_id, context=None):
             msg += f"{i}. {name} | {specialty} | Active={bool(active)} | Days={days}\n"
         msg += "\nReply with the doctor number from this list, or reply 'hi' to restart."
         send_message(phone, msg)
-        set_state(phone, "select_doctor", context or {})
+
+        fallback_context = context or {}
+        fallback_context['select_all_doctors'] = True
+        fallback_context['selected_hospital_id'] = hospital_id
+        set_state(phone, "select_doctor", fallback_context)
         return
 
     msg = "DOCTOR LIST (choose by number):\n\n"
