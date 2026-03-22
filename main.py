@@ -9,11 +9,12 @@ from whatsapp import send_message
 import asyncio
 import sqlite3
 import json
+import os
 
 app = FastAPI()
 
 # This is your verification token for Meta webhook
-VERIFY_TOKEN = "philaconnect_verify"
+VERIFY_TOKEN = os.getenv("VERIFY_TOKEN", "philaconnect_verify")
 
 # Templates
 templates = Jinja2Templates(directory="templates")
@@ -33,6 +34,7 @@ def verify(
 @app.post("/webhook")
 async def webhook(request: Request):
     data = await request.json()
+    print(f"Webhook received: {data}")  # Debug logging
     handle_message(data)
     return {"status": "ok"}
 
