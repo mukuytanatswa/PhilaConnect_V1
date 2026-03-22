@@ -172,28 +172,43 @@ def book_appointment(phone, doctor_id, date, time):
     conn.close()
     return appointment_id
 
-def get_appointments(phone=None, doctor_id=None):
+def get_appointments(phone=None, doctor_id=None, include_past=False):
+    """Get appointments. By default shows only future 'booked' and 'rescheduled' appointments"""
+    # First mark past appointments as completed
+    mark_past_appointments_completed()
+    
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
+    
     if phone:
+        # For patient: show all non-cancelled future booked/rescheduled appointments
         c.execute('''SELECT a.id, d.id, d.name, d.specialty, h.name, a.date, a.time, a.status
                      FROM appointments a
                      JOIN doctors d ON a.doctor_id = d.id
                      JOIN hospitals h ON d.hospital_id = h.id
-                     WHERE a.phone = ? AND a.status = 'booked'
-                     ORDER BY a.date, a.time''', (phone,))
+                     WHERE a.phone = ? AND a.status IN ('booked', 'rescheduled')
+                     ORDER BY a.date DESC, a.time DESC''', (phone,))
     elif doctor_id:
         c.execute('''SELECT a.id, a.doctor_id, a.phone, a.date, a.time, a.status
                      FROM appointments a
-                     WHERE a.doctor_id = ? AND a.status = 'booked'
+                     WHERE a.doctor_id = ? AND a.status IN ('booked', 'rescheduled')
                      ORDER BY a.date, a.time''', (doctor_id,))
     else:
-        c.execute('''SELECT a.id, a.doctor_id, a.phone, d.name, h.name, a.date, a.time, a.status
-                     FROM appointments a
-                     JOIN doctors d ON a.doctor_id = d.id
-                     JOIN hospitals h ON d.hospital_id = h.id
-                     WHERE a.status = 'booked'
-                     ORDER BY a.date, a.time''')
+        # For dashboard: show current/upcoming appointments
+        if include_past:
+            c.execute('''SELECT a.id, a.doctor_id, a.phone, d.name, h.name, a.date, a.time, a.status
+                         FROM appointments a
+                         JOIN doctors d ON a.doctor_id = d.id
+                         JOIN hospitals h ON d.hospital_id = h.id
+                         ORDER BY a.date DESC, a.time DESC''')
+        else:
+            c.execute('''SELECT a.id, a.doctor_id, a.phone, d.name, h.name, a.date, a.time, a.status
+                         FROM appointments a
+                         JOIN doctors d ON a.doctor_id = d.id
+                         JOIN hospitals h ON d.hospital_id = h.id
+                         WHERE a.status IN ('booked', 'rescheduled')
+                         ORDER BY a.date, a.time''')
+    
     appointments = c.fetchall()
     conn.close()
     return appointments
@@ -201,7 +216,24 @@ def get_appointments(phone=None, doctor_id=None):
 def cancel_appointment(appointment_id):
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
-    c.execute('UPDATE appointments SET status = "canceled" WHERE id = ?', (appointment_id,))
+    c.execute('UPDATE appointments SET status = "cancelled" WHERE id = ?', (appointment_id,))
+    conn.commit()
+    conn.close()
+
+def mark_appointment_completed(appointment_id):
+    """Mark an appointment as completed"""
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute('UPDATE appointments SET status = "completed" WHERE id = ?', (appointment_id,))
+    conn.commit()
+    conn.close()
+
+def mark_past_appointments_completed():
+    """Auto-mark appointments as completed if time has passed"""
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    now = datetime.now().strftime('%Y-%m-%d %H:%M')
+    c.execute('UPDATE appointments SET status = "completed" WHERE (date || \' \' || time) < ? AND status = "booked"', (now,))
     conn.commit()
     conn.close()
 

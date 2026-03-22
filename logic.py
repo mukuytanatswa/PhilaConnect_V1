@@ -6,10 +6,39 @@ from datetime import datetime
 def handle_message(data):
     try:
         # Extract phone number and text from WhatsApp payload
-        message = data["entry"][0]["changes"][0]["value"]["messages"][0]
-        phone = message["from"]
-        text = message["text"]["body"].lower().strip()
-    except:
+        message = data.get("entry", [{}])[0].get("changes", [{}])[0].get("value", {}).get("messages", [])
+        if not message:
+            print("No messages in payload")
+            return
+        
+        message = message[0]
+        phone = message.get("from")
+        
+        # Handle different message types
+        if message.get("type") == "text":
+            text = message.get("text", {}).get("body", "").lower().strip()
+        elif message.get("type") == "interactive":
+            interactive = message.get("interactive", {})
+            if "button_reply" in interactive:
+                text = interactive["button_reply"].get("id", "").lower().strip()
+            elif "list_reply" in interactive:
+                text = interactive["list_reply"].get("id", "").lower().strip()
+            else:
+                return
+        else:
+            print(f"Unsupported message type: {message.get('type')}")
+            return
+        
+        if not phone or not text:
+            print(f"Missing phone or text: phone={phone}, text={text}")
+            return
+        
+        print(f"Processing message from {phone}: {text}")
+        
+    except Exception as e:
+        print(f"Error extracting message: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return
 
     state, data = get_state(phone)

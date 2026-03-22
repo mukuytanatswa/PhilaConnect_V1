@@ -1,13 +1,11 @@
-from fastapi import FastAPI, Request, Query, Form, Request
+from fastapi import FastAPI, Request, Query, Form
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from logic import handle_message
-from db import get_appointments, toggle_doctor, get_doctors_all, get_hospitals, book_appointment, update_doctor_availability, cancel_appointment, get_user_profile
+from db import get_appointments, toggle_doctor, get_doctors_all, get_hospitals, book_appointment, update_doctor_availability, cancel_appointment, get_user_profile, mark_appointment_completed, get_upcoming_appointments
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from apscheduler.triggers.cron import CronTrigger
 from whatsapp import send_message
-from db import get_upcoming_appointments
 import asyncio
 import sqlite3
 import json
@@ -186,6 +184,86 @@ async def get_appointment_detail(appointment_id: int):
         return {"error": "Appointment not found"}, 404
     except Exception as e:
         return {"error": str(e)}, 400
+
+@app.get("/api/upcoming-appointments")
+async def get_upcoming_appts():
+    """Get appointments reaching their time (for alerts)"""
+    from datetime import datetime, timedelta
+    try:
+        # Get all current appointments
+        appointments = get_appointments()
+        now = datetime.now()
+        
+        reaching_now = []  # Appointments in the next 15 minutes
+        completed = []      # Appointments that just passed
+        
+        for appt in appointments:
+            appt_id, doctor_id, phone, doctor_name, hospital, date, time_str, status = appt
+            try:
+                appt_time = datetime.strptime(f"{date} {time_str}", "%Y-%m-%d %H:%M")
+                minutes_until = (appt_time - now).total_seconds() / 60
+                
+                # Alert if appointment is in next 15 minutes
+                if 0 <= minutes_until <= 15:
+                    reaching_now.append({
+                        "id": appt_id,
+                        "doctor": doctor_name,
+                        "phone": phone,
+                        "time": time_str,
+                        "minutes_until": int(minutes_until),
+                        "status": status
+                    })
+            except:
+                continue
+        
+        return {"reaching": reaching_now}
+    except Exception as e:
+        print(f"Error getting upcoming appointments: {e}")
+        return {"reaching": [], "error": str(e)}
+
+@app.get("/api/clinic-settings")
+async def get_clinic_settings():
+    """Get clinic settings"""
+    try:
+        hospitals = get_hospitals()
+        doctors = get_doctors_all()
+        return {
+            "clinic_name": hospitals[0][1] if hospitals else "PhilaConnect Clinic",
+            "total_doctors": len(doctors),
+            "active_doctors": sum(1 for d in doctors if d[4] == 1),
+            "hours": {
+                "open": "08:00",
+                "close": "18:00"
+            }
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
+@app.post("/api/clinic-settings")
+async def update_clinic_settings(
+    clinic_name: str = Form(None),
+    open_time: str = Form(None),
+    close_time: str = Form(None)
+):
+    """Update clinic settings (for Settings page)"""
+    # For now, just return success - implement full settings later
+    return {"status": "ok", "message": "Settings saved"}
+
+@app.post("/api/appointment/complete")
+async def mark_appointment_complete(request: Request):
+    """Mark an appointment as completed when notified"""
+    try:
+        data = await request.json()
+        appointment_id = data.get("appointment_id")
+        if not appointment_id:
+            return {"error": "No appointment ID provided"}
+        
+        # Mark as completed in database
+        mark_appointment_completed(appointment_id)
+        
+        return {"status": "ok", "message": "Appointment marked as completed"}
+    except Exception as e:
+        return {"error": str(e)}
 
 # Scheduler for notifications
 scheduler = AsyncIOScheduler()

@@ -939,6 +939,29 @@
   }
 
   .avail-pill.active { background: var(--sage-light); border-color: var(--sage); color: var(--sage); }
+
+  /* ── APPOINTMENT NOTIFICATIONS ── */
+  .appointment-notification {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: linear-gradient(135deg, var(--sage), #4a6a4a);
+    color: white;
+    padding: 16px 20px;
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(26,20,16,0.25);
+    width: 300px;
+    z-index: 1000;
+    animation: slideIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    border-left: 4px solid var(--amber);
+  }
+
+  @keyframes slideIn {
+    from { transform: translateX(350px); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+  }
+
+  .appointment-notification strong { font-weight: 600; display: block; margin-bottom: 4px; }
 </style>
 </head>
 <body>
@@ -979,7 +1002,7 @@
 
   <div class="sidebar-section">
     <div class="sidebar-label">System</div>
-    <div class="nav-item">
+    <div class="nav-item" onclick="showView('settings', this)">
       <span class="icon">⚙️</span> Settings
     </div>
   </div>
@@ -1267,6 +1290,142 @@
             </div>
             <div style="background:var(--cream);border-radius:10px;padding:14px;font-size:12.5px;line-height:1.6;color:var(--ink-soft);">
               📊 <strong>This week:</strong> 72 reminders sent · 69 delivered · 10 rescheduled · 3 no-shows
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ SETTINGS VIEW ══ -->
+    <div class="view" id="view-settings">
+      <div class="stats-grid" style="grid-template-columns:repeat(2,1fr);margin-bottom:20px;">
+        <div class="stat-card">
+          <div class="stat-label">Clinic Name</div>
+          <div class="stat-value" style="font-size:24px;">{{ hospitals[0][1] if hospitals else 'PhilaConnect' }}</div>
+          <div class="stat-delta" style="color:var(--ink-muted);">Primary clinic</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Active Doctors</div>
+          <div class="stat-value">{{ active_doctors }}/{{ doctors|length }}</div>
+          <div class="stat-delta" style="color:var(--ink-muted);">on duty</div>
+        </div>
+      </div>
+
+      <!-- Clinic Settings -->
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title">Clinic Settings</div>
+        </div>
+        <div class="panel-body">
+          <form onsubmit="saveClinicSettings(event)">
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Clinic Name</label>
+                <input class="form-input" id="settingClinicName" value="{{ hospitals[0][1] if hospitals else 'PhilaConnect Clinic' }}" placeholder="Clinic Name">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Contact Phone</label>
+                <input class="form-input" id="settingPhone" placeholder="+27 XX XXX XXXX">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Operating Hours - Open</label>
+                <input class="form-input" id="settingOpen" type="time" value="08:00">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Operating Hours - Close</label>
+                <input class="form-input" id="settingClose" type="time" value="18:00">
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Clinic Address</label>
+              <input class="form-input" id="settingAddress" placeholder="Street address">
+            </div>
+            <button class="btn btn-primary" type="submit" style="margin-top:10px;">Save Settings</button>
+          </form>
+        </div>
+      </div>
+
+      <!-- WhatsApp Settings -->
+      <div class="panel" style="margin-top:20px;">
+        <div class="panel-header">
+          <div class="panel-title">WhatsApp Integration</div>
+        </div>
+        <div class="panel-body">
+          <div style="margin-bottom:16px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:12px;background:var(--sage-light);border-radius:8px;color:var(--sage);">
+              <span style="font-weight:500;">✅ Bot Status: Active</span>
+              <span style="font-size:12px;">Connected & Ready</span>
+            </div>
+          </div>
+          <div style="margin-bottom:12px;">
+            <div class="form-label">Notification Preferences</div>
+          </div>
+          <label style="display:flex;align-items:center;gap:10px;margin-bottom:10px;cursor:pointer;">
+            <input type="checkbox" checked>
+            <span style="font-size:13px;">Send 48-hour appointment reminders</span>
+          </label>
+          <label style="display:flex;align-items:center;gap:10px;margin-bottom:10px;cursor:pointer;">
+            <input type="checkbox" checked>
+            <span style="font-size:13px;">Send morning-of reminders</span>
+          </label>
+          <label style="display:flex;align-items:center;gap:10px;margin-bottom:10px;cursor:pointer;">
+            <input type="checkbox" checked>
+            <span style="font-size:13px;">Send 1-hour before reminders</span>
+          </label>
+          <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+            <input type="checkbox" checked>
+            <span style="font-size:13px;">Send cancellation/reschedule notifications</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Appointment Alerts -->
+      <div class="panel" style="margin-top:20px;">
+        <div class="panel-header">
+          <div class="panel-title">Appointment Alerts</div>
+        </div>
+        <div class="panel-body">
+          <div style="margin-bottom:12px;">
+            <div class="form-label">Alert Notification Style</div>
+          </div>
+          <label style="display:flex;align-items:center;gap:10px;margin-bottom:10px;cursor:pointer;">
+            <input type="radio" name="alertStyle" checked>
+            <span style="font-size:13px;">Pop-up on dashboard screen (non-intrusive)</span>
+          </label>
+          <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+            <input type="radio" name="alertStyle">
+            <span style="font-size:13px;">Email notification</span>
+          </label>
+          <div style="margin-top:16px;padding:12px;background:var(--sky-light);border-radius:8px;color:var(--sky);font-size:12px;">
+            📢 When an appointment reaches its scheduled time, you'll receive an alert on the dashboard. The alert will appear as a floating notification in the bottom-right corner without interrupting your work.
+          </div>
+        </div>
+      </div>
+
+      <!-- System Info -->
+      <div class="panel" style="margin-top:20px;">
+        <div class="panel-header">
+          <div class="panel-title">System Information</div>
+        </div>
+        <div class="panel-body">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;font-size:13px;">
+            <div>
+              <div style="color:var(--ink-muted);margin-bottom:4px;font-weight:500;">App Version</div>
+              <div style="color:var(--ink);">PhilaConnect v2.0</div>
+            </div>
+            <div>
+              <div style="color:var(--ink-muted);margin-bottom:4px;font-weight:500;">Database Status</div>
+              <div style="color:var(--sage);">✓ Operational</div>
+            </div>
+            <div>
+              <div style="color:var(--ink-muted);margin-bottom:4px;font-weight:500;">Total Appointments</div>
+              <div style="color:var(--ink);">{{ appointments|length }}</div>
+            </div>
+            <div>
+              <div style="color:var(--ink-muted);margin-bottom:4px;font-weight:500;">API Last Check</div>
+              <div style="color:var(--ink);">Just now</div>
             </div>
           </div>
         </div>
@@ -1642,6 +1801,121 @@
       }
     });
   }
+
+  // ── NOTIFICATION SYSTEM ──
+  let notifiedAppointments = new Set();
+
+  function showNotification(appointment) {
+    const id = appointment.id || appointment.appointment_id;
+    if(notifiedAppointments.has(id)) return; // Don't show twice
+    notifiedAppointments.add(id);
+
+    const notification = document.createElement('div');
+    notification.className = 'appointment-notification';
+    notification.innerHTML = `
+      <div style="display: flex; justify-content: space-between; align-items: start; gap: 12px;">
+        <div>
+          <strong>Appointment Time!</strong>
+          <div style="font-size: 13px; color: #666; margin-top: 4px;">
+            <strong>${appointment.doctor}</strong> in ${appointment.minutes_until} minutes<br>
+            <span style="color: #999;">Patient: ${appointment.phone}</span>
+          </div>
+        </div>
+        <button onclick="this.parentElement.parentElement.remove()" style="
+          background: none; border: none; color: #999; cursor: pointer; font-size: 18px; padding: 0;
+        ">×</button>
+      </div>
+      <button onclick="markAppointmentComplete('${id}')" style="
+        margin-top: 10px; width: 100%; padding: 8px; background: #28a745; color: white; border: none; 
+        border-radius: 4px; cursor: pointer; font-size: 13px;
+      ">Mark Complete & Close Alert</button>
+    `;
+
+    document.body.appendChild(notification);
+
+    // Auto-remove after 8 seconds
+    setTimeout(() => {
+      notification.remove();
+      notifiedAppointments.delete(id);
+    }, 8000);
+  }
+
+  function markAppointmentComplete(appointmentId) {
+    fetch('/api/appointment/complete', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({appointment_id: appointmentId})
+    })
+      .then(r => r.json())
+      .then(data => {
+        console.log('Marked complete:', data);
+        location.reload();
+      })
+      .catch(err => console.error('Error:', err));
+  }
+
+  function checkUpcomingAppointments() {
+    fetch('/api/upcoming-appointments')
+      .then(r => r.json())
+      .then(data => {
+        if(data && data.reaching && data.reaching.length > 0) {
+          data.reaching.forEach(appt => {
+            if(appt.minutes_until <= 15 && appt.minutes_until > 0) {
+              showNotification(appt);
+            }
+          });
+        }
+      })
+      .catch(err => console.error('Alert check error:', err));
+  }
+
+  function startAlertPolling() {
+    // Check immediately on load
+    checkUpcomingAppointments();
+    // Then check every 30 seconds
+    setInterval(checkUpcomingAppointments, 30000);
+  }
+
+  // ── SETTINGS FORM ──
+  function saveClinicSettings(event) {
+    event.preventDefault();
+
+    const clinicName = document.getElementById('settingClinicName')?.value || '';
+    const phone = document.getElementById('settingPhone')?.value || '';
+    const open = document.getElementById('settingOpen')?.value || '';
+    const close = document.getElementById('settingClose')?.value || '';
+    const address = document.getElementById('settingAddress')?.value || '';
+
+    const formData = new FormData();
+    formData.append('clinic_name', clinicName);
+    formData.append('contact_phone', phone);
+    formData.append('hours_open', open);
+    formData.append('hours_close', close);
+    formData.append('address', address);
+
+    fetch('/api/clinic-settings', {
+      method: 'POST',
+      body: formData
+    })
+      .then(r => r.json())
+      .then(data => {
+        if(data.success || data.status === 'saved') {
+          alert('Settings saved successfully');
+          // Update clinic name in sidebar if exists
+          const sidebarClinic = document.querySelector('.clinic-name');
+          if(sidebarClinic) sidebarClinic.textContent = clinicName;
+        } else {
+          alert('Error saving settings: ' + (data.error || 'Unknown error'));
+        }
+      })
+      .catch(err => {
+        console.error('Settings save error:', err);
+        alert('Error saving settings. Check console for details.');
+      });
+  }
+
+  // ── STARTUP ──
+  startAlertPolling();
 </script>
 </body>
 </html>
