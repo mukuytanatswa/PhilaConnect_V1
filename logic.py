@@ -1,5 +1,5 @@
 from whatsapp import send_message
-from db import set_state, get_state, get_hospitals, get_doctors, get_doctors_all, get_available_dates, get_available_times, book_appointment, get_appointments, cancel_appointment
+from db import set_state, get_state, get_hospitals, get_doctors, get_doctors_all, get_available_dates, get_available_times, book_appointment, get_appointments, cancel_appointment, get_user_profile, set_user_profile
 import sqlite3
 from datetime import datetime
 
@@ -15,24 +15,34 @@ def handle_message(data):
     state, data = get_state(phone)
     data = data or {}
 
-    # Initial menu
-    if text in ["hi", "hello", "hey"]:
+    # Only show menu if user explicitly requests it or has no active state
+    if text in ["menu", "start"]:
         send_menu(phone)
+        return
 
-    # User picked option 1 = Book appointment (only if no active state)
-    elif text == "1" and state is None:
-        send_hospitals(phone)
+    # User picked option 1 = Book appointment
+    if text == "1" and (state is None or state == "idle"):
+        send_doctors(phone, get_hospitals()[0][0], data)  # Use first hospital by default
+        return
 
-    # User picked option 2 = Reschedule (only if no active state)
-    elif text == "2" and state is None:
+    # User picked option 2 = Reschedule
+    if text == "2" and (state is None or state == "idle"):
         send_reschedule_options(phone)
+        return
 
-    # User picked option 3 = Cancel (only if no active state)
-    elif text == "3" and state is None:
+    # User picked option 3 = Cancel
+    if text == "3" and (state is None or state == "idle"):
         send_cancel_options(phone)
+        return
+    
+    # User picked option 4 = Change User Info
+    if text == "4" and (state is None or state == "idle"):
+        set_state(phone, "update_user_info", {})
+        send_message(phone, "📝 Update Your Information\n\nWhat would you like to update?\n\n1️⃣ Name\n2️⃣ Phone Number\n3️⃣ Back to Menu")
+        return
 
     # Handling hospital selection
-    elif state == "select_hospital":
+    if state == "select_hospital":
         try:
             hospital_id = int(text)
             hospitals = get_hospitals()
@@ -180,18 +190,50 @@ def handle_message(data):
                 send_message(phone, "Invalid option. Please select a valid time number.")
         except ValueError:
             send_message(phone, "Please enter a number.")
+    
+    # Handling user info update
+    elif state == "update_user_info":
+        if text == "1":
+            set_state(phone, "update_name", {})
+            send_message(phone, "📝 What is your name?")
+        elif text == "2":
+            set_state(phone, "update_phone", {})
+            send_message(phone, "📝 What is your phone number? (Format: +27XXXXXXXXX)")
+        elif text == "3":
+            set_state(phone, None, {})
+            send_menu(phone)
+        else:
+            send_message(phone, "Invalid option. Please reply 1, 2, or 3.")
+    
+    elif state == "update_name":
+        # Store the name in database
+        name = text.strip()
+        set_user_profile(phone, name)
+        set_state(phone, None, {})
+        send_message(phone, f"✅ Your name has been updated to: {name}\n\nReply 'menu' to return to the main menu.")
+    
+    elif state == "update_phone":
+        # Store the phone in user data (note: phone number itself is the key)
+        if text.startswith('+27') and len(text) >= 12:
+            # Just acknowledge, the key is already the phone number
+            set_state(phone, None, {})
+            send_message(phone, f"✅ Phone number confirmed!\n\nReply 'menu' to return to the main menu.")
+        else:
+            send_message(phone, "❌ Invalid format. Please use format +27XXXXXXXXX")
 
     else:
-        send_message(phone, "Sorry, I didn't understand that. Please reply with 'hi' to start.")
+        # Don't send unhelpful message, just ignore
+        pass
 
 def send_menu(phone):
     send_message(
         phone,
-        "Welcome to Philaconnect 👋\n\n"
+        "Welcome to PhilaConnect 👋\n\n"
         "Reply with:\n"
         "1️⃣ Book appointment\n"
         "2️⃣ Reschedule appointment\n"
-        "3️⃣ Cancel appointment"
+        "3️⃣ Cancel appointment\n"
+        "4️⃣ Update my information"
     )
 
 def send_hospitals(phone):

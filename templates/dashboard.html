@@ -982,9 +982,6 @@
     <div class="nav-item">
       <span class="icon">⚙️</span> Settings
     </div>
-    <div class="nav-item">
-      <span class="icon">📊</span> Reports
-    </div>
   </div>
 
   <div class="clinic-info">
@@ -1015,20 +1012,20 @@
         </div>
         <div class="stat-card">
           <div class="stat-label">Doctors On Duty</div>
-          <div class="stat-value">{{ doctors|selectattr('is_active', 'equalto', 1)|list|length }}</div>
+          <div class="stat-value">{{ active_doctors }}</div>
           <div class="stat-delta" style="color:var(--ink-muted)">of {{ doctors|length }} available</div>
           <div class="stat-accent">👩‍⚕️</div>
         </div>
         <div class="stat-card">
           <div class="stat-label">Pending Confirmations</div>
-          <div class="stat-value">5</div>
-          <div class="stat-delta delta-down">▼ needs action</div>
+          <div class="stat-value">0</div>
+          <div class="stat-delta" style="color:var(--ink-muted);">confirmed</div>
           <div class="stat-accent">⏳</div>
         </div>
         <div class="stat-card">
           <div class="stat-label">Reminders Sent Today</div>
-          <div class="stat-value">24</div>
-          <div class="stat-delta delta-up">▲ 96% delivered</div>
+          <div class="stat-value">0</div>
+          <div class="stat-delta" style="color:var(--ink-muted);">today</div>
           <div class="stat-accent">💬</div>
         </div>
       </div>
@@ -1043,7 +1040,7 @@
           <div class="panel-body" style="padding-top:6px;padding-bottom:6px;">
             {% for appt in appointments[:5] %}
             <div class="appt-item">
-              <div class="appt-time"><div class="appt-time-main">{{ appt[6].split(':')[0] }}:{{ appt[6].split(':')[1] }}</div><div class="appt-time-period">{{ 'AM' if int(appt[6].split(':')[0]) < 12 else 'PM' }}</div></div>
+              <div class="appt-time"><div class="appt-time-main">{{ appt[6].split(':')[0] }}:{{ appt[6].split(':')[1] }}</div><div class="appt-time-period">{{ 'AM' if appt[6].split(':')[0] < '12' else 'PM' }}</div></div>
               <div class="appt-avatar" style="background:var(--terracotta-light);color:var(--terracotta)">{{ appt[3][:2].upper() }}</div>
               <div class="appt-info"><div class="appt-name">{{ appt[3] }}</div><div class="appt-detail">{{ appt[2] }} · {{ appt[4] }}</div></div>
               <span class="status-pill status-confirmed">Confirmed</span>
@@ -1067,7 +1064,7 @@
                 <div class="doc-name">{{ doc[1] }}</div>
                 <div class="doc-specialty">{{ doc[2] }}</div>
               </div>
-              <div class="doc-load"><span>{{ appointments|selectattr('doctor_id', 'equalto', doc[0])|list|length }}</span>today</div>
+              <div class="doc-load"><span>{{ appt_counts.get(doc[0], 0) }}</span>today</div>
               <label class="toggle"><input type="checkbox" {{ 'checked' if doc[4] else '' }} onchange="toggleDoc(this, '{{ doc[0] }}')"><span class="toggle-track"></span></label>
             </div>
             {% endfor %}
@@ -1078,25 +1075,12 @@
       <!-- NOTIFICATION SUMMARY -->
       <div class="panel">
         <div class="panel-header">
-          <div class="panel-title">Recent WhatsApp Reminders</div>
+          <div class="panel-title">WhatsApp Notifications</div>
           <div class="panel-action" onclick="showView('notifications', null)">Configure →</div>
         </div>
         <div class="panel-body" style="padding-top:4px;padding-bottom:4px;">
-          <div class="notif-item">
-            <div class="notif-icon" style="background:var(--sage-light);">✅</div>
-            <div class="notif-text">
-              <div class="notif-title">48-hour reminder sent · Sample Patient</div>
-              <div class="notif-sub">Appointment: Tomorrow 08:00 AM · Dr. Kotzé-Scott · Delivered ✓</div>
-            </div>
-            <div class="notif-time">08:05 AM</div>
-          </div>
-          <div class="notif-item">
-            <div class="notif-icon" style="background:var(--amber-light);">⏰</div>
-            <div class="notif-text">
-              <div class="notif-title">Morning-of reminder sent · Sample Patient</div>
-              <div class="notif-sub">Today 09:30 AM · Dr. Awe · Delivered ✓</div>
-            </div>
-            <div class="notif-time">07:00 AM</div>
+          <div style="display:flex;align-items:center;justify-content:center;min-height:120px;color:var(--ink-muted);text-align:center;">
+            <div>📬 Reminders will be logged here as they are sent to patients</div>
           </div>
         </div>
       </div>
@@ -1115,10 +1099,10 @@
         <div class="panel-header">
           <div class="panel-title">Today's Appointments — <span id="apptDateLabel">Sat 21 March 2026</span></div>
           <div style="display:flex;gap:8px;align-items:center;">
-            <select class="form-input" style="width:auto;padding:6px 12px;font-size:12.5px;">
-              <option>All Doctors</option>
+            <select class="form-input" id="doctorFilter" onchange="filterByDoctor(this)" style="width:auto;padding:6px 12px;font-size:12.5px;">
+              <option value="">All Doctors</option>
               {% for doc in doctors %}
-              <option>{{ doc[1] }}</option>
+              <option value="{{ doc[0] }}">{{ doc[1] }}</option>
               {% endfor %}
             </select>
             <button class="topbar-btn" onclick="openModal('newAppt')" style="padding:8px 14px;font-size:12.5px;">+ Add</button>
@@ -1133,7 +1117,7 @@
             </thead>
             <tbody id="apptTableBody">
               {% for appt in appointments %}
-              <tr onclick="openModal('apptDetail')">
+              <tr data-appt-id="{{ appt[0] }}" data-doctor-id="{{ appt[1] }}" onclick="showAppointmentDetail({{ appt[0] }}, event)">
                 <td><strong>{{ appt[6] }}</strong></td>
                 <td><div style="display:flex;align-items:center;gap:9px;">
                   <div style="width:30px;height:30px;border-radius:50%;background:var(--terracotta-light);color:var(--terracotta);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;">{{ appt[2][:2].upper() }}</div>
@@ -1141,8 +1125,8 @@
                 <td>{{ appt[3] }}</td>
                 <td>General</td>
                 <td><span class="status-pill status-confirmed">Confirmed</span></td>
-                <td style="font-size:12px;color:var(--ink-muted);">Morning sent ✓</td>
-                <td><div style="display:flex;gap:5px;"><div class="icon-btn">👁</div><div class="icon-btn">↺</div><div class="icon-btn">✕</div></div></td>
+                <td style="font-size:12px;color:var(--ink-muted);">Pending ⏳</td>
+                <td><div style="display:flex;gap:5px;"><div class="icon-btn" onclick="event.stopPropagation(); showAppointmentDetail({{ appt[0] }})">👁</div><div class="icon-btn" onclick="event.stopPropagation(); openRescheduleModal({{ appt[0] }})">↺</div><div class="icon-btn" onclick="event.stopPropagation(); openCancelModal({{ appt[0] }})">✕</div></div></td>
               </tr>
               {% endfor %}
             </tbody>
@@ -1343,30 +1327,88 @@
     </div>
     <div class="modal-body">
       <div style="display:flex;align-items:center;gap:14px;margin-bottom:20px;padding:16px;background:var(--cream);border-radius:10px;">
-        <div class="appt-avatar" style="width:50px;height:50px;font-size:18px;background:var(--terracotta-light);color:var(--terracotta);">NM</div>
+        <div class="appt-avatar" id="patientAvatar" style="width:50px;height:50px;font-size:18px;background:var(--terracotta-light);color:var(--terracotta);">--</div>
         <div>
-          <div style="font-size:17px;font-weight:600;">Nolwazi Mthembu</div>
-          <div style="font-size:13px;color:var(--ink-muted);">+27 71 234 5678 · ID: 8901234567890</div>
+          <div id="patientName" style="font-size:17px;font-weight:600;">—</div>
+          <div id="patientPhone" style="font-size:13px;color:var(--ink-muted);">—</div>
         </div>
-        <span class="status-pill status-confirmed" style="margin-left:auto;">Confirmed</span>
+        <span id="apptStatus" class="status-pill status-confirmed" style="margin-left:auto;">Confirmed</span>
       </div>
       <div class="form-row">
-        <div><div class="form-label">Date & Time</div><div style="font-size:14px;font-weight:500;">Sat 21 March · 08:00 AM</div></div>
-        <div><div class="form-label">Doctor</div><div style="font-size:14px;font-weight:500;">Dr. Dlamini</div></div>
+        <div><div class="form-label">Date & Time</div><div id="apptDatetime" style="font-size:14px;font-weight:500;">—</div></div>
+        <div><div class="form-label">Doctor</div><div id="apptDoctor" style="font-size:14px;font-weight:500;">—</div></div>
       </div>
-      <div style="margin-top:14px;"><div class="form-label">Reminder Status</div>
-        <div style="display:flex;flex-direction:column;gap:7px;margin-top:8px;">
-          <div style="display:flex;align-items:center;gap:8px;font-size:13px;"><span style="color:var(--sage);">✓</span> 48-hour reminder sent — Mar 19, 08:05 AM</div>
-          <div style="display:flex;align-items:center;gap:8px;font-size:13px;"><span style="color:var(--sage);">✓</span> Morning-of reminder sent — Mar 21, 07:00 AM</div>
-          <div style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ink-muted);">⏳ 1-hour reminder — scheduled 07:00 AM</div>
-        </div>
+      <div style="margin-top:14px;"><div class="form-label">Hospital</div>
+        <div id="apptHospital" style="font-size:14px;font-weight:500;">—</div>
       </div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('apptDetail')">Close</button>
-      <button class="btn" style="background:var(--amber-light);color:var(--amber);" onclick="closeModal('apptDetail')">Reschedule</button>
-      <button class="btn" style="background:var(--terracotta-light);color:var(--terracotta);" onclick="closeModal('apptDetail')">Cancel Appt</button>
+      <button class="btn" id="rescheduleBtn" style="background:var(--amber-light);color:var(--amber);" onclick="openRescheduleModal(currentApptId)">Reschedule</button>
+      <button class="btn" id="cancelBtn" style="background:var(--terracotta-light);color:var(--terracotta);" onclick="openCancelModal(currentApptId)">Cancel Appt</button>
     </div>
+  </div>
+</div>
+
+<!-- MODAL: CANCEL APPOINTMENT -->
+<div class="modal-backdrop" id="modal-cancelAppt">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Cancel Appointment</div>
+      <div class="modal-close" onclick="closeModal('cancelAppt')">✕</div>
+    </div>
+    <form onsubmit="submitCancel(event)">
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">Cancellation Message (optional)</label>
+          <textarea class="form-input" id="cancelMessage" placeholder="Explain why the appointment is being cancelled..." style="resize:vertical;min-height:80px;"></textarea>
+          <small style="color:var(--ink-muted);margin-top:4px;display:block;">This message will be sent to the patient via WhatsApp</small>
+        </div>
+        <div style="background:var(--terracotta-light);border-radius:8px;padding:12px 14px;font-size:12.5px;color:var(--terracotta);margin-top:4px;">
+          ⚠️ The patient will be notified immediately about the cancellation.
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" type="button" onclick="closeModal('cancelAppt')">Keep</button>
+        <button class="btn" style="background:var(--terracotta-light);color:var(--terracotta);" type="submit">Cancel & Notify</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- MODAL: RESCHEDULE APPOINTMENT -->
+<div class="modal-backdrop" id="modal-rescheduleAppt">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Reschedule Appointment</div>
+      <div class="modal-close" onclick="closeModal('rescheduleAppt')">✕</div>
+    </div>
+    <form onsubmit="submitReschedule(event)">
+      <div class="modal-body">
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">New Date</label>
+            <input class="form-input" id="rescheduleDate" type="date" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">New Time</label>
+            <input class="form-input" id="rescheduleTime" type="time" required>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Message to Patient (optional)</label>
+          <textarea class="form-input" id="rescheduleMessage" placeholder="Explain the reason for rescheduling..." style="resize:vertical;min-height:80px;"></textarea>
+          <small style="color:var(--ink-muted);margin-top:4px;display:block;">This message will be sent to the patient via WhatsApp</small>
+        </div>
+        <div style="background:var(--sky-light);border-radius:8px;padding:12px 14px;font-size:12.5px;color:var(--sky);margin-top:4px;">
+          ✅ The patient will be notified of the new appointment details.
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" type="button" onclick="closeModal('rescheduleAppt')">Cancel</button>
+        <button class="btn btn-primary" type="submit">Save & Notify</button>
+      </div>
+    </form>
   </div>
 </div>
 
@@ -1478,6 +1520,127 @@
     document.querySelectorAll('#view-notifications .tab').forEach(t=>t.classList.remove('active'));
     el.classList.add('active');
     document.getElementById('waMsg').innerHTML = msgs[type];
+  }
+
+  // ── APPOINTMENT DETAIL ──
+  let currentApptId = null;
+  
+  function showAppointmentDetail(apptId, event) {
+    if(event) event.preventDefault();
+    currentApptId = apptId;
+    
+    fetch(`/api/appointment/${apptId}`)
+      .then(r => r.json())
+      .then(data => {
+        if(data.error) {
+          alert('Could not load appointment details');
+          return;
+        }
+        // Populate modal
+        const patientInitials = data.phone.slice(-8, -6).toUpperCase();
+        document.getElementById('patientAvatar').textContent = patientInitials;
+        document.getElementById('patientName').textContent = data.phone;  // Use phone as identifier since we don't have name
+        document.getElementById('patientPhone').textContent = data.phone;
+        document.getElementById('apptDatetime').textContent = data.date + ' · ' + data.time;
+        document.getElementById('apptDoctor').textContent = data.doctor_name + ' — ' + data.specialty;
+        document.getElementById('apptHospital').textContent = data.hospital;
+        document.getElementById('apptStatus').textContent = data.status.charAt(0).toUpperCase() + data.status.slice(1);
+        
+        openModal('apptDetail');
+      })
+      .catch(err => {
+        console.error('Error:', err);
+        alert('Error loading appointment details');
+      });
+  }
+  
+  function openCancelModal(apptId) {
+    currentApptId = apptId;
+    closeModal('apptDetail');
+    document.getElementById('cancelMessage').value = '';
+    openModal('cancelAppt');
+  }
+  
+  function openRescheduleModal(apptId) {
+    currentApptId = apptId;
+    closeModal('apptDetail');
+    document.getElementById('rescheduleDate').value = '';
+    document.getElementById('rescheduleTime').value = '';
+    document.getElementById('rescheduleMessage').value = '';
+    openModal('rescheduleAppt');
+  }
+  
+  function submitCancel(e) {
+    e.preventDefault();
+    if(!currentApptId) return;
+    
+    const cancelMessage = document.getElementById('cancelMessage').value;
+    const formData = new FormData();
+    formData.append('appointment_id', currentApptId);
+    formData.append('cancel_message', cancelMessage);
+    
+    fetch('/cancel_appointment', {
+      method: 'POST',
+      body: formData
+    })
+      .then(r => r.json())
+      .then(data => {
+        closeModal('cancelAppt');
+        alert('Appointment cancelled and patient notified');
+        location.reload();
+      })
+      .catch(err => {
+        console.error('Error:', err);
+        alert('Error cancelling appointment');
+      });
+  }
+  
+  function submitReschedule(e) {
+    e.preventDefault();
+    if(!currentApptId) return;
+    
+    const newDate = document.getElementById('rescheduleDate').value;
+    const newTime = document.getElementById('rescheduleTime').value;
+    const rescheduleMessage = document.getElementById('rescheduleMessage').value;
+    
+    if(!newDate || !newTime) {
+      alert('Please select both date and time');
+      return;
+    }
+    
+    const formData = new FormData();
+    formData.append('appointment_id', currentApptId);
+    formData.append('new_date', newDate);
+    formData.append('new_time', newTime);
+    formData.append('reschedule_message', rescheduleMessage);
+    
+    fetch('/reschedule_appointment', {
+      method: 'POST',
+      body: formData
+    })
+      .then(r => r.json())
+      .then(data => {
+        closeModal('rescheduleAppt');
+        alert('Appointment rescheduled and patient notified');
+        location.reload();
+      })
+      .catch(err => {
+        console.error('Error:', err);
+        alert('Error rescheduling appointment');
+      });
+  }
+  
+  function filterByDoctor(select) {
+    const doctorId = select.value;
+    const rows = document.querySelectorAll('#apptTableBody tr');
+    
+    rows.forEach(row => {
+      if(doctorId === '') {
+        row.style.display = '';
+      } else {
+        row.style.display = row.dataset.doctorId === doctorId ? '' : 'none';
+      }
+    });
   }
 </script>
 </body>

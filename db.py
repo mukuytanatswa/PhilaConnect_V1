@@ -39,6 +39,14 @@ def init_db():
         state TEXT,
         data TEXT
     )''')
+    # User profiles table
+    c.execute('''CREATE TABLE IF NOT EXISTS user_profiles (
+        phone TEXT PRIMARY KEY,
+        name TEXT,
+        preferred_hospital_id INTEGER,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+    )''')
     # Doctor availability (for future, currently all available)
     c.execute('''CREATE TABLE IF NOT EXISTS doctor_availability (
         id INTEGER PRIMARY KEY,
@@ -232,6 +240,26 @@ def get_upcoming_appointments(hours_ahead=48):
     appointments = c.fetchall()
     conn.close()
     return appointments
+
+def get_user_profile(phone):
+    """Get user profile by phone number, returns (name, preferred_hospital_id) or (None, None)"""
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute('SELECT name, preferred_hospital_id FROM user_profiles WHERE phone = ?', (phone,))
+    row = c.fetchone()
+    conn.close()
+    if row:
+        return row[0], row[1]
+    return None, None
+
+def set_user_profile(phone, name, preferred_hospital_id=None):
+    """Set or update user profile"""
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute('INSERT OR REPLACE INTO user_profiles (phone, name, preferred_hospital_id, updated_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)', 
+              (phone, name, preferred_hospital_id))
+    conn.commit()
+    conn.close()
 
 # Initialize DB on import
 init_db()
