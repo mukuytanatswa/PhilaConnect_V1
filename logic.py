@@ -52,7 +52,7 @@ def handle_message(data):
 
     # User picked option 1 = Book appointment
     if text == "1" and (state is None or state == "idle"):
-        send_doctors(phone, get_hospitals()[0][0], data)  # Use first hospital by default
+        send_hospitals(phone)
         return
 
     # User picked option 2 = Reschedule
@@ -91,13 +91,11 @@ def handle_message(data):
 
     # Handling doctor selection
     elif state == "select_doctor":
-        if data.get('select_all_doctors'):
-            doctors = get_doctors_all()
-        else:
-            doctors = get_doctors(data.get('hospital_id'))
+        hospital_id = data.get('hospital_id')
+        doctors = get_doctors(hospital_id) if hospital_id else []
 
         if not doctors:
-            send_message(phone, "No doctors available now, please reply 'hi' to restart.")
+            send_message(phone, "No doctors available for the selected hospital. Please reply 'hi' to restart.")
             set_state(phone, None, {})
             return
 
@@ -285,23 +283,12 @@ def send_hospitals(phone):
 def send_doctors(phone, hospital_id, context=None):
     doctors = get_doctors(hospital_id)
 
+    base_context = dict(context or {})
+    base_context['hospital_id'] = hospital_id
+
     if not doctors:
-        all_docs = get_doctors_all()
-        if not all_docs:
-            send_message(phone, "No doctors are configured yet. Please contact admin.")
-            set_state(phone, None, {})
-            return
-
-        msg = "No active doctors are currently available at this hospital. Showing all doctors:\n\n"
-        for i, (id, name, specialty, _, active, days) in enumerate(all_docs, 1):
-            msg += f"{i}. {name} | {specialty} | Active={bool(active)} | Days={days}\n"
-        msg += "\nReply with the doctor number from this list, or reply 'hi' to restart."
-        send_message(phone, msg)
-
-        fallback_context = context or {}
-        fallback_context['select_all_doctors'] = True
-        fallback_context['selected_hospital_id'] = hospital_id
-        set_state(phone, "select_doctor", fallback_context)
+        send_message(phone, "No doctors are currently available at this hospital. Please select another hospital or reply 'hi' to restart.")
+        set_state(phone, None, {})
         return
 
     msg = "DOCTOR LIST (choose by number):\n\n"
