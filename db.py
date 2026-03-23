@@ -174,8 +174,8 @@ def book_appointment(phone, doctor_id, date, time):
 
 def get_appointments(phone=None, doctor_id=None, include_past=False):
     """Get appointments. By default shows only future 'booked' and 'rescheduled' appointments"""
-    # First mark past appointments as completed
-    mark_past_appointments_completed()
+    # Don't auto-mark past appointments as completed - let user's actions determine status
+    # mark_past_appointments_completed()
     
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
@@ -206,8 +206,7 @@ def get_appointments(phone=None, doctor_id=None, include_past=False):
                          FROM appointments a
                          JOIN doctors d ON a.doctor_id = d.id
                          JOIN hospitals h ON d.hospital_id = h.id
-                         WHERE a.status IN ('booked', 'rescheduled')
-                         ORDER BY a.date, a.time''')
+                         ORDER BY a.date DESC, a.time DESC''')
     
     appointments = c.fetchall()
     conn.close()

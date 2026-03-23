@@ -44,10 +44,11 @@ def handle_message(data):
     state, data = get_state(phone)
     data = data or {}
 
-    # Show menu for greetings or explicit requests
+    # Check for trigger words at ANY point to allow exit from any state
     greetings = ["hi", "hello", "hey", "menu", "start", "help"]
     if text.lower() in greetings:
         send_menu(phone)
+        set_state(phone, None, {})  # Reset state to idle
         return
 
     # User picked option 1 = Book appointment
@@ -214,10 +215,14 @@ def handle_message(data):
             times = get_available_times(data['doctor_id'], data['new_date'])
             if 1 <= time_index <= len(times):
                 data['new_time'] = times[time_index-1]
-                # Update appointment
+                # Mark old appointment as cancelled and create a new one
                 conn = sqlite3.connect('philaconnect.db')
                 c = conn.cursor()
-                c.execute('UPDATE appointments SET date = ?, time = ? WHERE id = ?', (data['new_date'], data['new_time'], data['reschedule_id']))
+                # Cancel the old appointment
+                c.execute('UPDATE appointments SET status = "cancelled" WHERE id = ?', (data['reschedule_id'],))
+                # Create a new appointment with the new date/time
+                c.execute('INSERT INTO appointments (phone, doctor_id, date, time, status) VALUES (?, ?, ?, ?, "booked")', 
+                         (phone, data['doctor_id'], data['new_date'], data['new_time']))
                 conn.commit()
                 conn.close()
                 set_state(phone, None, {})
