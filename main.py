@@ -187,6 +187,27 @@ async def get_appointment_detail(appointment_id: int):
     except Exception as e:
         return {"error": str(e)}, 400
 
+@app.get("/api/appointments-data")
+async def get_appointments_data():
+    """Get all appointments as JSON for dashboard refresh"""
+    try:
+        appointments = get_appointments()
+        result = []
+        for appt in appointments:
+            result.append({
+                "id": appt[0],
+                "doctor_id": appt[1],
+                "phone": appt[2],
+                "doctor_name": appt[3],
+                "hospital": appt[4],
+                "date": appt[5],
+                "time": appt[6],
+                "status": appt[7]
+            })
+        return {"appointments": result, "count": len(result)}
+    except Exception as e:
+        return {"error": str(e)}, 400
+
 @app.get("/api/upcoming-appointments")
 async def get_upcoming_appts():
     """Get appointments reaching their time (for alerts)"""

@@ -1683,11 +1683,19 @@
 
   // ── APPOINTMENT DETAIL ──
   let currentApptId = null;
+  let allAppointmentsCache = {};  // Cache to store all appointment data
   
   function showAppointmentDetail(apptId, event) {
     if(event) event.preventDefault();
     currentApptId = apptId;
     
+    // Try to get from cache first
+    if(allAppointmentsCache[apptId]) {
+      populateApptModal(allAppointmentsCache[apptId]);
+      return;
+    }
+    
+    // Otherwise fetch it
     fetch(`/api/appointment/${apptId}`)
       .then(r => r.json())
       .then(data => {
@@ -1695,22 +1703,26 @@
           alert('Could not load appointment details');
           return;
         }
-        // Populate modal
-        const patientInitials = data.phone.slice(-8, -6).toUpperCase();
-        document.getElementById('patientAvatar').textContent = patientInitials;
-        document.getElementById('patientName').textContent = data.phone;  // Use phone as identifier since we don't have name
-        document.getElementById('patientPhone').textContent = data.phone;
-        document.getElementById('apptDatetime').textContent = data.date + ' · ' + data.time;
-        document.getElementById('apptDoctor').textContent = data.doctor_name + ' — ' + data.specialty;
-        document.getElementById('apptHospital').textContent = data.hospital;
-        document.getElementById('apptStatus').textContent = data.status.charAt(0).toUpperCase() + data.status.slice(1);
-        
-        openModal('apptDetail');
+        allAppointmentsCache[apptId] = data;
+        populateApptModal(data);
       })
       .catch(err => {
-        console.error('Error:', err);
+        console.error('Error loading appointment:', err);
         alert('Error loading appointment details');
       });
+  }
+  
+  function populateApptModal(data) {
+    const patientInitials = data.phone.slice(-8, -6).toUpperCase();
+    document.getElementById('patientAvatar').textContent = patientInitials;
+    document.getElementById('patientName').textContent = data.phone;
+    document.getElementById('patientPhone').textContent = data.phone;
+    document.getElementById('apptDatetime').textContent = data.date + ' · ' + data.time;
+    document.getElementById('apptDoctor').textContent = data.doctor_name + ' — ' + data.specialty;
+    document.getElementById('apptHospital').textContent = data.hospital;
+    document.getElementById('apptStatus').textContent = data.status.charAt(0).toUpperCase() + data.status.slice(1);
+    
+    openModal('apptDetail');
   }
   
   function openCancelModal(apptId) {
@@ -1916,6 +1928,106 @@
 
   // ── STARTUP ──
   startAlertPolling();
+
+  // ── AUTO-REFRESH APPOINTMENTS IN BACKGROUND (SEAMLESS) ──
+  let autoRefreshEnabled = true;
+  let lastApptCount = 0;
+  
+  function autoRefreshDashboard() {
+    if (!autoRefreshEnabled) return;
+    
+    // Fetch only appointment data (JSON), not entire HTML
+    fetch('/api/appointments-data')
+      .then(r => r.json())
+      .then(data => {
+        if(!data.appointments) return;
+        
+        const appointments = data.appointments;
+        
+        // Update the appointment cache for modal lookups
+        appointments.forEach(appt => {
+          allAppointmentsCache[appt.id] = {
+            id: appt.id,
+            phone: appt.phone,
+            doctor_name: appt.doctor_name,
+            specialty: appt.specialty,
+            hospital: appt.hospital,
+            date: appt.date,
+            time: appt.time,
+            status: appt.status
+          };
+        });
+        
+        // ─ Update upcoming appointments panel (dashboard view) ─
+        const upcomingPanel = document.querySelector('[id="view-dashboard"] .panel-body');
+        if(upcomingPanel && appointments.length > 0) {
+          let html = '<div style="display:flex;flex-direction:column;gap:12px;">';
+          appointments.slice(0, 5).forEach(appt => {
+            const statusClass = appt.status === 'booked' ? 'status-confirmed' : 'status-pending';
+            html += `
+              <div style="padding:12px;background:var(--terracotta-pale);border-radius:8px;border-left:3px solid var(--terracotta);">
+                <div style="font-weight:500;font-size:14px;">${appt.doctor_name} @ ${appt.hospital}</div>
+                <div style="font-size:12px;color:var(--ink-muted);margin-top:4px;">${appt.date} · ${appt.time}</div>
+                <div style="font-size:12px;color:var(--ink-muted);margin-top:2px;">📞 ${appt.phone}</div>
+              </div>
+            `;
+          });
+          html += '</div>';
+          
+          // Only update if content actually changed
+          if(upcomingPanel.innerHTML !== html) {
+            upcomingPanel.innerHTML = html;
+          }
+        }
+        
+        // ─ Update appointments table (if viewing appointments tab) ─
+        const apptsTable = document.querySelector('.appt-table tbody');
+        if(apptsTable) {
+          let tableHtml = '';
+          appointments.forEach(appt => {
+            const statusClass = appt.status === 'booked' ? 'status-confirmed' : 'status-pending';
+            tableHtml += `
+              <tr data-appt-id="${appt.id}" onclick="showAppointmentDetail(${appt.id}, event)">
+                <td>${appt.phone}</td>
+                <td>${appt.doctor_name}</td>
+                <td>${appt.hospital}</td>
+                <td>${appt.date}</td>
+                <td>${appt.time}</td>
+                <td><span class="status-pill ${statusClass}">${appt.status}</span></td>
+                <td><div style="display:flex;gap:5px;"><div class="icon-btn" onclick="event.stopPropagation(); showAppointmentDetail(${appt.id})">👁</div><div class="icon-btn" onclick="event.stopPropagation(); openRescheduleModal(${appt.id})">↺</div><div class="icon-btn" onclick="event.stopPropagation(); openCancelModal(${appt.id})">✕</div></div></td>
+              </tr>
+            `;
+          });
+          
+          if(apptsTable.innerHTML !== tableHtml) {
+            apptsTable.innerHTML = tableHtml;
+          }
+        }
+        
+        // ─ Update stats ─
+        const statValues = document.querySelectorAll('.stat-value');
+        if(statValues.length > 0) {
+          const today = new Date().toISOString().split('T')[0];
+          const todayCount = appointments.filter(a => a.date === today).length;
+          if(statValues[0]) statValues[0].textContent = todayCount;
+          
+          const bookedCount = appointments.filter(a => a.status === 'booked').length;
+          if(statValues[1]) statValues[1].textContent = appointments.length;  // Total appointments
+        }
+        
+        // Update count
+        lastApptCount = appointments.length;
+      })
+      .catch(err => {
+        console.error('Auto-refresh error:', err);
+      });
+  }
+  
+  // Start auto-refresh every 5 seconds (seamless, no visible flicker)
+  setInterval(autoRefreshDashboard, 5000);
+  
+  // Initial refresh to populate cache and display
+  autoRefreshDashboard();
 </script>
 </body>
 </html>

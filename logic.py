@@ -123,31 +123,24 @@ def handle_message(data):
 
         if selected_id is not None:
             data['doctor_id'] = selected_id
-            set_state(phone, "select_date", data)
-            send_dates(phone, data['doctor_id'])
+            # Use new combined date+time picker by default
+            send_combined_date_time(phone, data['doctor_id'])
         else:
             send_message(phone, "Could not find the chosen doctor. Reply with number or name.")
 
     # Handling date selection
     elif state == "select_date":
-        if text.lower() == "more":
-            page = data.get('date_page', 0) + 1
-            send_dates(phone, data['doctor_id'], page)
-            return
-
         try:
-            date_index = int(text)
-            dates = get_available_dates(data['doctor_id'])
-            page = data.get('date_page', 0)
-            selected_list = dates[page*7:(page+1)*7]
-            if 1 <= date_index <= len(selected_list):
-                data['date'] = selected_list[date_index-1]
+            choice = int(text)
+            date_to_option = data.get('date_to_option', {})
+            if choice in date_to_option:
+                data['date'] = date_to_option[choice]
                 set_state(phone, "select_time", data)
                 send_times(phone, data['doctor_id'], data['date'], data)
             else:
-                send_message(phone, "Invalid option. Please select a valid date number from the current page.")
+                send_message(phone, "Invalid selection. Please reply with a date number shown in the calendar.")
         except ValueError:
-            send_message(phone, "Please enter a number or 'MORE'.")
+            send_message(phone, "Please reply with a number for your preferred date.")
 
     # Handling time selection
     elif state == "select_time":
@@ -164,6 +157,7 @@ def handle_message(data):
                 send_message(phone, "Invalid option. Please select a valid time number.")
         except ValueError:
             send_message(phone, "Please enter a number.")
+
 
     # Handling cancel selection
     elif state == "select_cancel":
@@ -319,12 +313,12 @@ def send_dates(phone, doctor_id, page=0):
         send_message(phone, "No more dates available. Reply with 1..7 or 'hi' to restart.")
         return
 
-    msg = f"SELECT DATE (page {page+1}/{(total+page_size-1)//page_size}):\n"
-    msg += "---------------------------\n"
+    msg = f"📅 SELECT DATE (page {page+1}/{(total+page_size-1)//page_size}):\n"
+    msg += "═" * 40 + "\n"
     for i, date in enumerate(page_dates, 1):
         day_obj = datetime.strptime(date, '%Y-%m-%d')
         day_name = day_obj.strftime('%A')
-        msg += f"{i}. {date} ({day_name})\n"
+        msg += f"{i}. {day_name.upper()} · {date}\n"
     if end < total:
         msg += "\nReply with number 1-7, or text 'MORE' for next set of dates."
     else:
@@ -337,11 +331,113 @@ def send_dates(phone, doctor_id, page=0):
 
 def send_times(phone, doctor_id, date, context=None):
     times = get_available_times(doctor_id, date)
-    msg = "SELECT A TIME:\n" + "-" * 30 + "\n"
-    for i, time in enumerate(times, 1):
-        msg += f"{i}. {time}\n"
+    
+    # Group times by period (AM/PM)
+    am_times = [t for t in times if int(t.split(':')[0]) < 12]
+    pm_times = [t for t in times if int(t.split(':')[0]) >= 12]
+    
+    msg = "🕐 SELECT TIME:\n" + "═" * 40 + "\n"
+    
+    if am_times:
+        msg += "MORNING ☀️\n"
+        for i, time in enumerate(am_times, 1):
+            msg += f"  {i}. {time} AM\n"
+        msg += "\n"
+    
+    if pm_times:
+        msg += "AFTERNOON 🌤️\n"
+        start_idx = len(am_times) + 1
+        for i, time in enumerate(pm_times, 1):
+            msg += f"  {start_idx + i - 1}. {time} PM\n"
+    
+    msg += "\nReply with the number for your preferred time"
     send_message(phone, msg)
     set_state(phone, "select_time", context or {})
+
+def send_combined_date_time(phone, doctor_id, page=0):
+    """Calendar grid date picker - keep dates separate from times"""
+    dates = get_available_dates(doctor_id)
+    if not dates:
+        send_message(phone, "No available dates for this doctor.")
+        set_state(phone, None)
+        return
+
+    # Group dates by month for calendar display
+    from collections import defaultdict
+    dates_by_month = defaultdict(list)
+    for date_str in dates:
+        date_obj = datetime.strptime(date_str, '%Y-%m-%d')
+        month_key = date_obj.strftime('%Y-%m')
+        dates_by_month[month_key].append((date_str, date_obj))
+    
+    # Get first month's dates
+    first_month_key = sorted(dates_by_month.keys())[0]
+    month_dates = sorted(dates_by_month[first_month_key], key=lambda x: x[1])
+    first_date = month_dates[0][1]
+    
+    # Build calendar grid
+    month_name = first_date.strftime('%B %Y')
+    days_of_week = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su']
+    
+    # Get first day of month
+    first_day_weekday = first_date.replace(day=1).weekday()  # Monday=0, Sunday=6
+    
+    msg = f"📅 {month_name}\n"
+    msg += " ".join(days_of_week) + "\n"
+    msg += "─" * 26 + "\n"
+    
+    # Add empty cells before first day
+    grid_day = 1
+    week = [" " * 2] * first_day_weekday
+    
+    date_to_option = {}  # Map displayed number to actual date
+    option_num = 1
+    
+    # Get all days in the month
+    if first_month_key == sorted(dates_by_month.keys())[-1]:
+        # Last month, only show available dates
+        month_days = [d[0] for d in month_dates]
+    else:
+        # Full month
+        last_day = 31
+        for day in range(1, 32):
+            try:
+                first_date.replace(day=day)
+            except ValueError:
+                last_day = day - 1
+                break
+        month_days = [d[0] for d in month_dates]
+    
+    # Build the calendar grid
+    day_counter = 1
+    for date_str, date_obj in month_dates:
+        day_num = date_obj.day
+        
+        # Pad with spaces if needed
+        while len(week) < 7 and day_counter > 1:
+            week.append(" " * 2)
+        
+        if len(week) == 7:
+            msg += " ".join(f"{d:>2}" for d in week) + "\n"
+            week = []
+        
+        week.append(f"{option_num:>2}")
+        date_to_option[option_num] = date_str
+        option_num += 1
+        day_counter += 1
+    
+    # Pad last week
+    while len(week) < 7:
+        week.append(" " * 2)
+    msg += " ".join(f"{d:>2}" for d in week) + "\n"
+    
+    msg += "─" * 26 + "\n"
+    msg += "Reply with the number for your preferred date."
+    
+    data = get_state(phone)[1] or {}
+    data['date_to_option'] = date_to_option
+    set_state(phone, 'select_date', data)
+    send_message(phone, msg)
 
 def send_cancel_options(phone):
     appointments = get_appointments(phone=phone)
