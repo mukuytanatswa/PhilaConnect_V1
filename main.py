@@ -34,7 +34,6 @@ def verify(
 @app.post("/webhook")
 async def webhook(request: Request):
     data = await request.json()
-    print(f"Webhook received: {data}")  # Debug logging
     handle_message(data)
     return {"status": "ok"}
 
@@ -119,7 +118,7 @@ async def cancel_appt(appointment_id: int = Form(...), cancel_message: str = For
         
         if row:
             phone, appt_id = row
-            msg = f"❌ Your appointment (ID: {appt_id}) has been cancelled."
+            msg = f"Your appointment (Ref: {appt_id}) has been cancelled."
             if cancel_message.strip():
                 msg += f"\n\nReason: {cancel_message}"
             msg += f"\n\nReply 'menu' to book a new appointment."
@@ -147,7 +146,7 @@ async def reschedule_appt(
         if row:
             phone = row[0]
             reschedule_appointment(appointment_id, new_date, new_time)
-            msg = f"📅 Your appointment has been rescheduled!\n\nNew Date: {new_date}\nNew Time: {new_time}"
+            msg = f"Your appointment has been rescheduled.\n\nNew date: {new_date}\nNew time: {new_time}"
             if reschedule_message.strip():
                 msg += f"\n\nNote from clinic: {reschedule_message}"
             send_message(phone, msg)
@@ -315,19 +314,25 @@ async def send_reminders():
             # 48-hour reminder (send when within 49-47 hours)
             if 47 <= hours_until <= 49:
                 hospital_name = get_hospitals()[0][1] if get_hospitals() else "The Clinic"
-                msg = f"Sawubona 👋\n\nThis is a reminder of your appointment in 2 days.\n\n📅 {date}\n🕗 {time}\n👩‍⚕️ {doc_name}\n📍 {hospital_name}\n\nReply 'menu' to reschedule or with any questions. See you soon! ✅"
+                msg = (f"Appointment reminder - 2 days away.\n\n"
+                       f"Date: {date}\nTime: {time}\nDoctor: {doc_name}\nClinic: {hospital_name}\n\n"
+                       f"Reply 'menu' to reschedule.")
                 send_message(phone, msg)
             
             # Morning-of reminder (send at 7 AM on the day of appointment)
             elif appt_datetime.date() == now.date() and 7 <= now.hour < 8:
                 hospital_name = get_hospitals()[0][1] if get_hospitals() else "The Clinic"
-                msg = f"Good morning ☀️\n\nQuick reminder - you have an appointment TODAY!\n\n🕗 {time}\n👩‍⚕️ {doc_name}\n📍 {hospital_name}\n\nPlease bring your ID and arrive 10 mins early. See you soon! ❤️"
+                msg = (f"Appointment reminder - today.\n\n"
+                       f"Time: {time}\nDoctor: {doc_name}\nClinic: {hospital_name}\n\n"
+                       f"Bring your ID and arrive 10 minutes early.")
                 send_message(phone, msg)
             
             # 1-hour reminder (send when within 1.2-0.8 hours)
             elif 0.8 <= hours_until <= 1.2:
                 hospital_name = get_hospitals()[0][1] if get_hospitals() else "The Clinic"
-                msg = f"⏱ Your appointment is in 1 hour!\n\n🕗 {time}\n👩‍⚕️ {doc_name}\n📍 {hospital_name}\n\nRunning late? Reply immediately so we can help. See you soon! ❤️"
+                msg = (f"Your appointment is in 1 hour.\n\n"
+                       f"Time: {time}\nDoctor: {doc_name}\nClinic: {hospital_name}\n\n"
+                       f"If you are running late, reply now.")
                 send_message(phone, msg)
     
     except Exception as e:

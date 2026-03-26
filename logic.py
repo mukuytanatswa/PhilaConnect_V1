@@ -1,5 +1,6 @@
 from whatsapp import send_message, send_list
 from db import set_state, get_state, get_hospitals, get_doctors, get_doctors_all, get_available_dates, get_available_times, book_appointment, get_appointments, cancel_appointment, get_user_profile, set_user_profile
+import re
 import sqlite3
 from datetime import datetime
 
@@ -69,7 +70,7 @@ def handle_message(data):
     # User picked option 4 = Change User Info
     if text == "4" and (state is None or state == "idle"):
         set_state(phone, "update_user_info", {})
-        send_message(phone, "📝 Update Your Information\n\nWhat would you like to update?\n\n1️⃣ Name\n2️⃣ Phone Number\n3️⃣ Back to Menu")
+        send_message(phone, "Update your information\n\n1. Name\n2. Phone number\n3. Back to menu")
         return
 
     # Handling hospital selection
@@ -131,7 +132,6 @@ def handle_message(data):
     elif state == "select_date":
         if text.startswith('date_'):
             date = text.replace('date_', '')
-            import re
             if re.match(r'^\d{4}-\d{2}-\d{2}$', date):
                 data['date'] = date
                 set_state(phone, "select_time", data)
@@ -152,7 +152,7 @@ def handle_message(data):
                 set_state(phone, None, {})
                 date_obj = datetime.strptime(data['date'], '%Y-%m-%d')
                 date_label = date_obj.strftime('%A, %d %B %Y')
-                send_message(phone, f"✅ APPOINTMENT CONFIRMED\n\nDate: {date_label}\nTime: {_fmt_time(time)}\nRef ID: {appointment_id}\n\nReply 'menu' to return to the main menu.")
+                send_message(phone, f"Appointment confirmed.\n\nDate: {date_label}\nTime: {_fmt_time(time)}\nRef: {appointment_id}\n\nReply 'menu' for the main menu.")
             else:
                 send_message(phone, "Invalid selection. Please choose from the list.")
         else:
@@ -192,7 +192,6 @@ def handle_message(data):
     elif state == "reschedule_date":
         if text.startswith('date_'):
             date = text.replace('date_', '')
-            import re
             if re.match(r'^\d{4}-\d{2}-\d{2}$', date):
                 data['new_date'] = date
                 set_state(phone, "reschedule_time", data)
@@ -219,7 +218,7 @@ def handle_message(data):
                 set_state(phone, None, {})
                 date_obj = datetime.strptime(data['new_date'], '%Y-%m-%d')
                 date_label = date_obj.strftime('%A, %d %B %Y')
-                send_message(phone, f"✅ APPOINTMENT RESCHEDULED\n\nNew Date: {date_label}\nNew Time: {_fmt_time(data['new_time'])}\n\nReply 'menu' to return to the main menu.")
+                send_message(phone, f"Appointment rescheduled.\n\nDate: {date_label}\nTime: {_fmt_time(data['new_time'])}\n\nReply 'menu' for the main menu.")
             else:
                 send_message(phone, "Invalid selection. Please choose from the list.")
         else:
@@ -229,10 +228,10 @@ def handle_message(data):
     elif state == "update_user_info":
         if text == "1":
             set_state(phone, "update_name", {})
-            send_message(phone, "📝 What is your name?")
+            send_message(phone, "Enter your full name:")
         elif text == "2":
             set_state(phone, "update_phone", {})
-            send_message(phone, "📝 What is your phone number? (Format: +27XXXXXXXXX)")
+            send_message(phone, "Enter your phone number (+27XXXXXXXXX):")
         elif text == "3":
             set_state(phone, None, {})
             send_menu(phone)
@@ -244,16 +243,16 @@ def handle_message(data):
         name = text.strip()
         set_user_profile(phone, name)
         set_state(phone, None, {})
-        send_message(phone, f"✅ Your name has been updated to: {name}\n\nReply 'menu' to return to the main menu.")
+        send_message(phone, f"Name updated to: {name}\n\nReply 'menu' for the main menu.")
     
     elif state == "update_phone":
         # Store the phone in user data (note: phone number itself is the key)
         if text.startswith('+27') and len(text) >= 12:
             # Just acknowledge, the key is already the phone number
             set_state(phone, None, {})
-            send_message(phone, f"✅ Phone number confirmed!\n\nReply 'menu' to return to the main menu.")
+            send_message(phone, "Phone number saved.\n\nReply 'menu' for the main menu.")
         else:
-            send_message(phone, "❌ Invalid format. Please use format +27XXXXXXXXX")
+            send_message(phone, "Invalid format. Use +27XXXXXXXXX and try again.")
 
     else:
         # Don't send unhelpful message, just ignore
@@ -262,12 +261,12 @@ def handle_message(data):
 def send_menu(phone):
     send_message(
         phone,
-        "Welcome to PhilaConnect 👋\n\n"
-        "Reply with:\n"
-        "1️⃣ Book appointment\n"
-        "2️⃣ Reschedule appointment\n"
-        "3️⃣ Cancel appointment\n"
-        "4️⃣ Update my information"
+        "PhilaConnect Appointment Service\n\n"
+        "Reply with a number:\n"
+        "1. Book appointment\n"
+        "2. Reschedule appointment\n"
+        "3. Cancel appointment\n"
+        "4. Update my information"
     )
 
 def send_hospitals(phone):
@@ -289,7 +288,7 @@ def send_doctors(phone, hospital_id, context=None):
         set_state(phone, None, {})
         return
 
-    msg = "DOCTOR LIST (choose by number):\n\n"
+    msg = "Select a doctor:\n\n"
     for i, (id, name, specialty, available_days) in enumerate(doctors, 1):
         msg += f"{i}. {name} | {specialty} | Days: {available_days}\n"
     msg += "\nReply with the doctor number (e.g., 1)."
@@ -353,7 +352,7 @@ def send_date_list(phone, doctor_id, context=None):
 
     data = dict(context or {})
     set_state(phone, 'select_date', data)
-    send_list(phone, "📅 Scroll and choose an appointment date:", "View Dates", sections)
+    send_list(phone, "Select a date:", "View Dates", sections)
 
 
 def send_time_list(phone, doctor_id, date, context=None, prefix='time'):
@@ -365,12 +364,12 @@ def send_time_list(phone, doctor_id, date, context=None, prefix='time'):
     sections = []
     if morning:
         sections.append({
-            "title": "Morning ☀️",
+            "title": "Morning",
             "rows": [{"id": f"{prefix}_{t}", "title": _fmt_time(t), "description": "Available"} for t in morning],
         })
     if afternoon:
         sections.append({
-            "title": "Afternoon 🌤️",
+            "title": "Afternoon",
             "rows": [{"id": f"{prefix}_{t}", "title": _fmt_time(t), "description": "Available"} for t in afternoon],
         })
 
@@ -379,7 +378,7 @@ def send_time_list(phone, doctor_id, date, context=None, prefix='time'):
 
     data = dict(context or {})
     set_state(phone, 'select_time', data)
-    send_list(phone, f"📅 Date: {date_label}\n\n🕐 Scroll and pick a time slot:", "View Times", sections)
+    send_list(phone, f"Date: {date_label}\n\nSelect a time:", "View Times", sections)
 
 
 def send_cancel_options(phone):
