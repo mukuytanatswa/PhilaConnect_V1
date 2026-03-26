@@ -3,7 +3,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from logic import handle_message
-from db import get_appointments, toggle_doctor, get_doctors_all, get_hospitals, book_appointment, update_doctor_availability, cancel_appointment, get_user_profile, mark_appointment_completed, get_upcoming_appointments
+from db import get_appointments, toggle_doctor, get_doctors_all, get_hospitals, book_appointment, update_doctor_availability, cancel_appointment, reschedule_appointment, get_user_profile, mark_appointment_completed, get_upcoming_appointments
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from whatsapp import send_message
 import asyncio
@@ -142,18 +142,16 @@ async def reschedule_appt(
         c = conn.cursor()
         c.execute('SELECT phone FROM appointments WHERE id = ?', (appointment_id,))
         row = c.fetchone()
-        
+        conn.close()
+
         if row:
             phone = row[0]
-            c.execute('UPDATE appointments SET date = ?, time = ? WHERE id = ?', (new_date, new_time, appointment_id))
-            conn.commit()
-            
+            reschedule_appointment(appointment_id, new_date, new_time)
             msg = f"📅 Your appointment has been rescheduled!\n\nNew Date: {new_date}\nNew Time: {new_time}"
             if reschedule_message.strip():
                 msg += f"\n\nNote from clinic: {reschedule_message}"
             send_message(phone, msg)
-        
-        conn.close()
+
         return {"status": "ok", "message": "Appointment rescheduled and patient notified"}
     except Exception as e:
         return {"status": "error", "message": str(e)}, 400
@@ -164,24 +162,28 @@ async def get_appointment_detail(appointment_id: int):
     try:
         conn = sqlite3.connect('philaconnect.db')
         c = conn.cursor()
-        c.execute('''SELECT a.id, a.phone, d.name, d.specialty, h.name, a.date, a.time, a.status
+        c.execute('''SELECT a.id, a.phone,
+                            COALESCE(up.name, a.phone) AS patient_name,
+                            d.name, d.specialty, h.name, a.date, a.time, a.status
                      FROM appointments a
                      JOIN doctors d ON a.doctor_id = d.id
                      JOIN hospitals h ON d.hospital_id = h.id
+                     LEFT JOIN user_profiles up ON a.phone = up.phone
                      WHERE a.id = ?''', (appointment_id,))
         row = c.fetchone()
         conn.close()
-        
+
         if row:
             return {
                 "id": row[0],
                 "phone": row[1],
-                "doctor_name": row[2],
-                "specialty": row[3],
-                "hospital": row[4],
-                "date": row[5],
-                "time": row[6],
-                "status": row[7]
+                "patient_name": row[2],
+                "doctor_name": row[3],
+                "specialty": row[4],
+                "hospital": row[5],
+                "date": row[6],
+                "time": row[7],
+                "status": row[8]
             }
         return {"error": "Appointment not found"}, 404
     except Exception as e:
@@ -198,11 +200,12 @@ async def get_appointments_data():
                 "id": appt[0],
                 "doctor_id": appt[1],
                 "phone": appt[2],
-                "doctor_name": appt[3],
-                "hospital": appt[4],
-                "date": appt[5],
-                "time": appt[6],
-                "status": appt[7]
+                "patient_name": appt[3],
+                "doctor_name": appt[4],
+                "hospital": appt[5],
+                "date": appt[6],
+                "time": appt[7],
+                "status": appt[8]
             })
         return {"appointments": result, "count": len(result)}
     except Exception as e:
@@ -221,7 +224,7 @@ async def get_upcoming_appts():
         completed = []      # Appointments that just passed
         
         for appt in appointments:
-            appt_id, doctor_id, phone, doctor_name, hospital, date, time_str, status = appt
+            appt_id, doctor_id, phone, patient_name, doctor_name, hospital, date, time_str, status = appt
             try:
                 appt_time = datetime.strptime(f"{date} {time_str}", "%Y-%m-%d %H:%M")
                 minutes_until = (appt_time - now).total_seconds() / 60

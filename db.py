@@ -194,19 +194,15 @@ def get_appointments(phone=None, doctor_id=None, include_past=False):
                      WHERE a.doctor_id = ? AND a.status IN ('booked', 'rescheduled')
                      ORDER BY a.date, a.time''', (doctor_id,))
     else:
-        # For dashboard: show current/upcoming appointments
-        if include_past:
-            c.execute('''SELECT a.id, a.doctor_id, a.phone, d.name, h.name, a.date, a.time, a.status
-                         FROM appointments a
-                         JOIN doctors d ON a.doctor_id = d.id
-                         JOIN hospitals h ON d.hospital_id = h.id
-                         ORDER BY a.date DESC, a.time DESC''')
-        else:
-            c.execute('''SELECT a.id, a.doctor_id, a.phone, d.name, h.name, a.date, a.time, a.status
-                         FROM appointments a
-                         JOIN doctors d ON a.doctor_id = d.id
-                         JOIN hospitals h ON d.hospital_id = h.id
-                         ORDER BY a.date DESC, a.time DESC''')
+        # For dashboard: show all appointments with patient name from user_profiles
+        c.execute('''SELECT a.id, a.doctor_id, a.phone,
+                            COALESCE(up.name, a.phone) AS patient_name,
+                            d.name, h.name, a.date, a.time, a.status
+                     FROM appointments a
+                     JOIN doctors d ON a.doctor_id = d.id
+                     JOIN hospitals h ON d.hospital_id = h.id
+                     LEFT JOIN user_profiles up ON a.phone = up.phone
+                     ORDER BY a.date DESC, a.time DESC''')
     
     appointments = c.fetchall()
     conn.close()
@@ -216,6 +212,14 @@ def cancel_appointment(appointment_id):
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
     c.execute('UPDATE appointments SET status = "cancelled" WHERE id = ?', (appointment_id,))
+    conn.commit()
+    conn.close()
+
+def reschedule_appointment(appointment_id, new_date, new_time):
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute('UPDATE appointments SET date = ?, time = ?, status = "rescheduled" WHERE id = ?',
+              (new_date, new_time, appointment_id))
     conn.commit()
     conn.close()
 
