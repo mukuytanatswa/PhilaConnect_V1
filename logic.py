@@ -67,6 +67,11 @@ def handle_message(data):
         send_cancel_options(phone)
         return
     
+    # User picked option 5 = View appointments
+    if text == "5" and (state is None or state == "idle"):
+        send_appointments(phone)
+        return
+
     # User picked option 4 = Change User Info
     if text == "4" and (state is None or state == "idle"):
         set_state(phone, "update_user_info", {})
@@ -282,7 +287,8 @@ def send_menu(phone):
         "1. Book appointment\n"
         "2. Reschedule appointment\n"
         "3. Cancel appointment\n"
-        "4. Update my information"
+        "4. Update my information\n"
+        "5. View my appointments"
     )
 
 def send_hospitals(phone):
@@ -306,7 +312,7 @@ def send_doctors(phone, hospital_id, context=None):
 
     msg = "Select a doctor:\n\n"
     for i, (id, name, specialty, available_days) in enumerate(doctors, 1):
-        msg += f"{i}. {name} | {specialty} | Days: {available_days}\n"
+        msg += f"{i}. {name} | {specialty}\n"
     msg += "\nReply with the doctor number (e.g., 1)."
     send_message(phone, msg)
     set_state(phone, "select_doctor", context or {})
@@ -422,6 +428,17 @@ def send_cancel_options(phone):
         msg += f"{i}. {doc_name} ({specialty}) at {hosp_name} on {date} at {time}\n"
     send_message(phone, msg)
     set_state(phone, "select_cancel")
+
+def send_appointments(phone):
+    appointments = get_appointments(phone=phone)
+    upcoming = [a for a in appointments if a[7] != 'cancelled']
+    if not upcoming:
+        send_message(phone, "You have no upcoming appointments.\n\nReply 'menu' to go back.")
+        return
+    msg = "Your appointments:\n\n"
+    for appt_id, doctor_id, doc_name, specialty, hosp_name, date, time, status in upcoming:
+        msg += f"Ref: {appt_id}\nDate: {date}  Time: {time}\nDoctor: {doc_name}\nStatus: {status}\n\n"
+    send_message(phone, msg.strip() + "\n\nReply 'menu' to go back.")
 
 def send_reschedule_options(phone):
     appointments = get_appointments(phone=phone)

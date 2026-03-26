@@ -63,6 +63,12 @@ def init_db():
     if 'available_days' not in columns:
         c.execute("ALTER TABLE doctors ADD COLUMN available_days TEXT DEFAULT 'Mon,Tue,Wed,Thu,Fri,Sat,Sun'")
 
+    # Add reminder_sent column if it doesn't exist (migration for existing databases)
+    c.execute("PRAGMA table_info(appointments)")
+    appt_columns = [row[1] for row in c.fetchall()]
+    if 'reminder_sent' not in appt_columns:
+        c.execute("ALTER TABLE appointments ADD COLUMN reminder_sent INTEGER DEFAULT 0")
+
     # Backfill any doctors missing available_days
     c.execute("UPDATE doctors SET available_days = 'Mon,Tue,Wed,Thu,Fri' WHERE available_days IS NULL OR available_days = ''")
 
@@ -273,11 +279,20 @@ def get_upcoming_appointments(hours_ahead=48):
     c.execute('''SELECT a.id, a.phone, d.name, a.date, a.time
                  FROM appointments a
                  JOIN doctors d ON a.doctor_id = d.id
-                 WHERE a.status = 'booked' AND datetime(a.date || " " || a.time) BETWEEN ? AND ?''',
+                 WHERE a.status = 'booked'
+                   AND a.reminder_sent = 0
+                   AND datetime(a.date || " " || a.time) BETWEEN ? AND ?''',
               (now.strftime('%Y-%m-%d %H:%M'), future.strftime('%Y-%m-%d %H:%M')))
     appointments = c.fetchall()
     conn.close()
     return appointments
+
+def mark_reminder_sent(appointment_id):
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute('UPDATE appointments SET reminder_sent = 1 WHERE id = ?', (appointment_id,))
+    conn.commit()
+    conn.close()
 
 def get_user_profile(phone):
     """Get user profile by phone number, returns (name, preferred_hospital_id) or (None, None)"""

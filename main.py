@@ -3,7 +3,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from logic import handle_message
-from db import get_appointments, toggle_doctor, get_doctors_all, get_hospitals, book_appointment, update_doctor_availability, cancel_appointment, reschedule_appointment, get_user_profile, mark_appointment_completed, get_upcoming_appointments
+from db import get_appointments, toggle_doctor, get_doctors_all, get_hospitals, book_appointment, update_doctor_availability, cancel_appointment, reschedule_appointment, get_user_profile, mark_appointment_completed, get_upcoming_appointments, mark_reminder_sent
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from whatsapp import send_message
 import asyncio
@@ -298,42 +298,24 @@ async def send_reminders():
     from datetime import datetime, timedelta
     
     try:
-        appointments = get_upcoming_appointments(hours_ahead=48)
+        appointments = get_upcoming_appointments(hours_ahead=24)
         now = datetime.now()
-        
+
         for appt in appointments:
             appt_id, phone, doc_name, date, time = appt
             try:
                 appt_datetime = datetime.strptime(f"{date} {time}", "%Y-%m-%d %H:%M")
             except:
                 continue
-            
-            time_until_appt = appt_datetime - now
-            hours_until = time_until_appt.total_seconds() / 3600
-            
-            # 48-hour reminder (send when within 49-47 hours)
-            if 47 <= hours_until <= 49:
-                hospital_name = get_hospitals()[0][1] if get_hospitals() else "The Clinic"
-                msg = (f"Appointment reminder - 2 days away.\n\n"
-                       f"Date: {date}\nTime: {time}\nDoctor: {doc_name}\nClinic: {hospital_name}\n\n"
-                       f"Reply 'menu' to reschedule.")
-                send_message(phone, msg)
-            
-            # Morning-of reminder (send at 7 AM on the day of appointment)
-            elif appt_datetime.date() == now.date() and 7 <= now.hour < 8:
+
+            # Single reminder: 6am on the morning of the appointment
+            if appt_datetime.date() == now.date() and now.hour == 6:
                 hospital_name = get_hospitals()[0][1] if get_hospitals() else "The Clinic"
                 msg = (f"Appointment reminder - today.\n\n"
                        f"Time: {time}\nDoctor: {doc_name}\nClinic: {hospital_name}\n\n"
                        f"Bring your ID and arrive 10 minutes early.")
                 send_message(phone, msg)
-            
-            # 1-hour reminder (send when within 1.2-0.8 hours)
-            elif 0.8 <= hours_until <= 1.2:
-                hospital_name = get_hospitals()[0][1] if get_hospitals() else "The Clinic"
-                msg = (f"Your appointment is in 1 hour.\n\n"
-                       f"Time: {time}\nDoctor: {doc_name}\nClinic: {hospital_name}\n\n"
-                       f"If you are running late, reply now.")
-                send_message(phone, msg)
+                mark_reminder_sent(appt_id)
     
     except Exception as e:
         print(f"Error sending reminders: {e}")
