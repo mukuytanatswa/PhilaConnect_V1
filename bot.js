@@ -102,20 +102,11 @@ async function handleBookSelectDoctor(from, input, session) {
   const dates = getAvailableDates();
   setSession(from, 'BOOK_SELECT_DATE', { doctorId });
 
-  const sections = [{
-    title: 'Available Dates',
-    rows: dates.map((d, i) => ({
-      id: `date_${d}`,
-      title: d,
-      description: new Date(d).toLocaleDateString('en-ZA', { weekday: 'long' }),
-    })),
-  }];
-
   await sendList(
     from,
-    `✅ You selected *${doctor.name}*.\n\n📅 Choose an appointment date:`,
-    'Choose Date',
-    sections
+    `✅ You selected *${doctor.name}*.\n\n📅 Scroll and choose an appointment date:`,
+    'View Dates',
+    buildDateSections(dates, 'date')
   );
 }
 
@@ -127,16 +118,12 @@ async function handleBookSelectDate(from, input, session) {
 
   setSession(from, 'BOOK_SELECT_TIME', { ...session.data, date });
 
-  const sections = [{
-    title: 'Time Slots',
-    rows: TIME_SLOTS.map(t => ({
-      id: `time_${t}`,
-      title: t,
-      description: 'Available',
-    })),
-  }];
-
-  await sendList(from, `📅 Date: *${date}*\n\n🕐 Choose a time slot:`, 'Choose Time', sections);
+  await sendList(
+    from,
+    `📅 Date: *${formatDateTitle(date)}*\n\n🕐 Scroll and pick a time slot:`,
+    'View Times',
+    buildTimeSections('time')
+  );
 }
 
 async function handleBookSelectTime(from, input, session) {
@@ -151,7 +138,7 @@ async function handleBookSelectTime(from, input, session) {
 
   await sendButtons(
     from,
-    `🔍 *Please confirm your appointment:*\n\n👨‍⚕️ Doctor: ${doctor.name}\n🏥 Specialty: ${doctor.specialty}\n📅 Date: ${date}\n🕐 Time: ${time}\n\nConfirm booking?`,
+    `🔍 *Please confirm your appointment:*\n\n👨‍⚕️ Doctor: ${doctor.name}\n🏥 Specialty: ${doctor.specialty}\n📅 Date: ${formatDateTitle(date)}\n🕐 Time: ${formatTime(time)}\n\nConfirm booking?`,
     [
       { id: 'confirm_book', title: '✅ Confirm' },
       { id: 'cancel',       title: '❌ Cancel' },
@@ -286,32 +273,24 @@ async function handleRescheduleSelect(from, input, session) {
   const dates = getAvailableDates();
   setSession(from, 'RESCHEDULE_DATE', { apptId });
 
-  const sections = [{
-    title: 'New Date',
-    rows: dates.map(d => ({
-      id: `ndate_${d}`,
-      title: d,
-      description: new Date(d).toLocaleDateString('en-ZA', { weekday: 'long' }),
-    })),
-  }];
-
-  await sendList(from, `📅 Select a new date for appointment *${apptId}*:`, 'Choose New Date', sections);
+  await sendList(
+    from,
+    `📅 Select a new date for appointment *${apptId}*:`,
+    'View Dates',
+    buildDateSections(dates, 'ndate')
+  );
 }
 
 async function handleRescheduleDate(from, input, session) {
   const date = input.replace('ndate_', '');
   setSession(from, 'RESCHEDULE_TIME', { ...session.data, newDate: date });
 
-  const sections = [{
-    title: 'New Time',
-    rows: TIME_SLOTS.map(t => ({
-      id: `ntime_${t}`,
-      title: t,
-      description: 'Available',
-    })),
-  }];
-
-  await sendList(from, `📅 New date: *${date}*\n\n🕐 Choose a new time:`, 'Choose New Time', sections);
+  await sendList(
+    from,
+    `📅 New date: *${formatDateTitle(date)}*\n\n🕐 Scroll and pick a new time:`,
+    'View Times',
+    buildTimeSections('ntime')
+  );
 }
 
 async function handleRescheduleTime(from, input, session) {
@@ -324,7 +303,7 @@ async function handleRescheduleTime(from, input, session) {
 
   await sendButtons(
     from,
-    `🔍 *Confirm Reschedule:*\n\n📋 Ref: ${apptId}\n👨‍⚕️ Doctor: ${doctor.name}\n📅 New Date: ${newDate}\n🕐 New Time: ${time}`,
+    `🔍 *Confirm Reschedule:*\n\n📋 Ref: ${apptId}\n👨‍⚕️ Doctor: ${doctor.name}\n📅 New Date: ${formatDateTitle(newDate)}\n🕐 New Time: ${formatTime(time)}`,
     [
       { id: 'confirm_reschedule', title: '✅ Confirm' },
       { id: 'cancel',             title: '❌ Cancel' },
@@ -346,6 +325,114 @@ async function handleRescheduleConfirm(from, input, session) {
     from,
     `✅ *Appointment Rescheduled!*\n\n${formatAppointment(updated)}\n\nType *menu* to go back.`
   );
+}
+
+// ─── DATE / TIME FORMATTING HELPERS ─────────────────────────────────────────
+
+function formatDateTitle(dateStr) {
+  const [year, month, day] = dateStr.split('-').map(Number);
+  const d = new Date(year, month - 1, day);
+  return d.toLocaleDateString('en-ZA', { weekday: 'short', day: 'numeric', month: 'short' });
+}
+
+function formatDateDescription(dateStr) {
+  const [year, month, day] = dateStr.split('-').map(Number);
+  const date = new Date(year, month - 1, day);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const diffDays = Math.round((date - today) / (1000 * 60 * 60 * 24));
+
+  if (diffDays === 1) return 'Tomorrow';
+  if (diffDays <= 6) return `This ${date.toLocaleDateString('en-ZA', { weekday: 'long' })}`;
+  return date.toLocaleDateString('en-ZA', { day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+function buildDateSections(dates, prefix = 'date') {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const dayOfWeek = today.getDay();
+  const daysToNextMonday = dayOfWeek === 0 ? 1 : 8 - dayOfWeek;
+  const nextMonday = new Date(today);
+  nextMonday.setDate(today.getDate() + daysToNextMonday);
+  const followingMonday = new Date(nextMonday);
+  followingMonday.setDate(nextMonday.getDate() + 7);
+
+  const thisWeek = [], nextWeek = [], later = [];
+
+  for (const dateStr of dates) {
+    const [y, m, d] = dateStr.split('-').map(Number);
+    const date = new Date(y, m - 1, d);
+    if (date < nextMonday) thisWeek.push(dateStr);
+    else if (date < followingMonday) nextWeek.push(dateStr);
+    else later.push(dateStr);
+  }
+
+  const sections = [];
+  if (thisWeek.length > 0) {
+    sections.push({
+      title: 'This Week',
+      rows: thisWeek.map(d => ({
+        id: `${prefix}_${d}`,
+        title: formatDateTitle(d),
+        description: formatDateDescription(d),
+      })),
+    });
+  }
+  if (nextWeek.length > 0) {
+    sections.push({
+      title: 'Next Week',
+      rows: nextWeek.map(d => ({
+        id: `${prefix}_${d}`,
+        title: formatDateTitle(d),
+        description: formatDateDescription(d),
+      })),
+    });
+  }
+  if (later.length > 0) {
+    sections.push({
+      title: 'Upcoming',
+      rows: later.map(d => ({
+        id: `${prefix}_${d}`,
+        title: formatDateTitle(d),
+        description: formatDateDescription(d),
+      })),
+    });
+  }
+  return sections;
+}
+
+function formatTime(timeStr) {
+  const [h, m] = timeStr.split(':').map(Number);
+  const period = h < 12 ? 'AM' : 'PM';
+  const hour12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+  return `${hour12}:${m.toString().padStart(2, '0')} ${period}`;
+}
+
+function buildTimeSections(prefix = 'time') {
+  const morning = TIME_SLOTS.filter(t => parseInt(t.split(':')[0]) < 12);
+  const afternoon = TIME_SLOTS.filter(t => parseInt(t.split(':')[0]) >= 12);
+  const sections = [];
+  if (morning.length > 0) {
+    sections.push({
+      title: 'Morning ☀️',
+      rows: morning.map(t => ({
+        id: `${prefix}_${t}`,
+        title: formatTime(t),
+        description: 'Available',
+      })),
+    });
+  }
+  if (afternoon.length > 0) {
+    sections.push({
+      title: 'Afternoon 🌤️',
+      rows: afternoon.map(t => ({
+        id: `${prefix}_${t}`,
+        title: formatTime(t),
+        description: 'Available',
+      })),
+    });
+  }
+  return sections;
 }
 
 module.exports = { handleMessage };
