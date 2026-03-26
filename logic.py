@@ -45,11 +45,21 @@ def handle_message(data):
     state, data = get_state(phone)
     data = data or {}
 
-    # Check for trigger words at ANY point to allow exit from any state
-    greetings = ["hi", "hello", "hey", "menu", "start", "help"]
-    if text.lower() in greetings:
+    # "menu" / "help" always escape to menu immediately
+    if text in ["menu", "help"]:
         send_menu(phone)
-        set_state(phone, None, {})  # Reset state to idle
+        set_state(phone, None, {})
+        return
+
+    # First-time greetings: ask for name if no profile yet
+    if text in ["hi", "hello", "hey", "start"]:
+        name, _ = get_user_profile(phone)
+        if not name:
+            set_state(phone, 'new_user_name', {})
+            send_message(phone, "Welcome to PhilaConnect!\n\nWhat is your full name?")
+        else:
+            send_menu(phone)
+            set_state(phone, None, {})
         return
 
     # User picked option 1 = Book appointment
@@ -287,6 +297,17 @@ def handle_message(data):
             send_message(phone, "Phone number saved.\n\nReply 'menu' for the main menu.")
         else:
             send_message(phone, "Invalid format. Use +27XXXXXXXXX and try again.")
+
+    elif state == 'new_user_name':
+        name = text.strip()
+        if len(name) < 2:
+            send_message(phone, "Please enter your full name:")
+            return
+        set_user_profile(phone, name)
+        set_state(phone, None, {})
+        first_name = name.split()[0]
+        send_message(phone, f"Thanks {first_name}! Here's what you can do:")
+        send_menu(phone)
 
     else:
         # Don't send unhelpful message, just ignore
