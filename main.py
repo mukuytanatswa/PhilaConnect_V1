@@ -245,7 +245,7 @@ async def get_upcoming_appts():
         completed = []      # Appointments that just passed
         
         for appt in appointments:
-            appt_id, doctor_id, phone, patient_name, doctor_name, hospital, date, time_str, status = appt
+            appt_id, doctor_id, phone, patient_name, doctor_name, hospital, date, time_str, status, reminder_sent = appt
             try:
                 appt_time = datetime.strptime(f"{date} {time_str}", "%Y-%m-%d %H:%M")
                 minutes_until = (appt_time - now).total_seconds() / 60
@@ -267,6 +267,18 @@ async def get_upcoming_appts():
     except Exception as e:
         print(f"Error getting upcoming appointments: {e}")
         return {"reaching": [], "error": str(e)}
+
+@app.get("/api/debug")
+async def debug_info():
+    """Show which DB file the server is using and current appointment count"""
+    import os
+    appointments = get_appointments()
+    return {
+        "db_file": DB_FILE,
+        "db_exists": os.path.exists(DB_FILE),
+        "appointment_count": len(appointments),
+        "appointments": [{"id": a[0], "phone": a[2], "date": a[6], "time": a[7], "status": a[8]} for a in appointments]
+    }
 
 @app.get("/api/clinic-settings")
 async def get_clinic_settings():

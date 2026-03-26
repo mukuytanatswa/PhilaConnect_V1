@@ -174,12 +174,14 @@ def get_available_times(doctor_id, date):
     return times
 
 def book_appointment(phone, doctor_id, date, time):
+    print(f"[book_appointment] DB_FILE={DB_FILE}, phone={phone}, doctor_id={doctor_id}, date={date}, time={time}")
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
     c.execute('INSERT INTO appointments (phone, doctor_id, date, time) VALUES (?, ?, ?, ?)', (phone, doctor_id, date, time))
     appointment_id = c.lastrowid
     conn.commit()
     conn.close()
+    print(f"[book_appointment] saved appointment_id={appointment_id}")
     return appointment_id
 
 def get_appointments(phone=None, doctor_id=None, include_past=False):
