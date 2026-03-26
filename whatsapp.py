@@ -6,6 +6,36 @@ import os
 TOKEN = os.getenv("WHATSAPP_TOKEN", "EAAcPr81TDkYBRB9p4ZAbVt1ptzPPDxwxved6nGrLF5ItE0oSO0MvdWbPoIDjsQlW0j2SY8ZC8h6T7lvueTTQcZA8hjx42IZBkZClQJoPuCsEGz2UoiSyMtcJw6AcFvgq4XRSWjkwQZB0Fri3VpCP8cvUEQBQjMlhwYfuhA7nTDCjJOp5RCWgXHNj7YBe2SdVNZCKQZDZD")
 PHONE_ID = os.getenv("WHATSAPP_PHONE_ID", "1056110920899451")
 
+def send_list(phone, body_text, button_text, sections):
+    """Send a WhatsApp interactive list message (scrollable picker)"""
+    try:
+        url = f"https://graph.facebook.com/v18.0/{PHONE_ID}/messages"
+        headers = {
+            "Authorization": f"Bearer {TOKEN}",
+            "Content-Type": "application/json",
+        }
+        payload = {
+            "messaging_product": "whatsapp",
+            "to": phone,
+            "type": "interactive",
+            "interactive": {
+                "type": "list",
+                "body": {"text": body_text},
+                "action": {
+                    "button": button_text,
+                    "sections": sections,
+                },
+            },
+        }
+        response = requests.post(url, headers=headers, json=payload, timeout=10)
+        if response.status_code != 200:
+            print(f"WhatsApp List API Error: {response.status_code} - {response.text}")
+        return response.status_code == 200
+    except Exception as e:
+        print(f"Error sending list to {phone}: {str(e)}")
+        return False
+
+
 def send_message(phone, text):
     """Send message with error logging"""
     print(f"Sending message to {phone}: {text[:50]}...")  # Debug log
