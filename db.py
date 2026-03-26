@@ -1,9 +1,10 @@
 import sqlite3
 import json
+import os
 from datetime import datetime, timedelta
 
-# Database file
-DB_FILE = 'philaconnect.db'
+# Database file — absolute path so it resolves correctly regardless of working directory
+DB_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'philaconnect.db')
 
 def init_db():
     conn = sqlite3.connect(DB_FILE)
@@ -206,7 +207,7 @@ def get_appointments(phone=None, doctor_id=None, include_past=False):
         # For dashboard: show all appointments with patient name from user_profiles
         c.execute('''SELECT a.id, a.doctor_id, a.phone,
                             COALESCE(up.name, a.phone) AS patient_name,
-                            d.name, h.name, a.date, a.time, a.status
+                            d.name, h.name, a.date, a.time, a.status, a.reminder_sent
                      FROM appointments a
                      JOIN doctors d ON a.doctor_id = d.id
                      JOIN hospitals h ON d.hospital_id = h.id
@@ -313,6 +314,42 @@ def set_user_profile(phone, name, preferred_hospital_id=None):
               (phone, name, preferred_hospital_id))
     conn.commit()
     conn.close()
+
+def get_today_count():
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    today = datetime.now().strftime('%Y-%m-%d')
+    c.execute("SELECT COUNT(*) FROM appointments WHERE date = ? AND status IN ('booked', 'rescheduled')", (today,))
+    count = c.fetchone()[0]
+    conn.close()
+    return count
+
+def get_yesterday_count():
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    yesterday = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
+    c.execute("SELECT COUNT(*) FROM appointments WHERE date = ? AND status IN ('booked', 'rescheduled', 'completed')", (yesterday,))
+    count = c.fetchone()[0]
+    conn.close()
+    return count
+
+def get_reminders_sent_today():
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    today = datetime.now().strftime('%Y-%m-%d')
+    c.execute("SELECT COUNT(*) FROM appointments WHERE date = ? AND reminder_sent = 1", (today,))
+    count = c.fetchone()[0]
+    conn.close()
+    return count
+
+def get_upcoming_count():
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    today = datetime.now().strftime('%Y-%m-%d')
+    c.execute("SELECT COUNT(*) FROM appointments WHERE date >= ? AND status IN ('booked', 'rescheduled')", (today,))
+    count = c.fetchone()[0]
+    conn.close()
+    return count
 
 # Initialize DB on import
 init_db()

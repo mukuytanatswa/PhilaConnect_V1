@@ -982,18 +982,12 @@
       <span class="icon">📅</span> Appointments
       <span class="badge">{{ appointments|length }}</span>
     </div>
-    <div class="nav-item" onclick="showView('schedule', this)">
-      <span class="icon">🗓</span> Schedule
-    </div>
   </div>
 
   <div class="sidebar-section">
     <div class="sidebar-label">Clinic</div>
     <div class="nav-item" onclick="showView('doctors', this)">
       <span class="icon">👩‍⚕️</span> Doctors
-    </div>
-    <div class="nav-item" onclick="showView('patients', this)">
-      <span class="icon">👥</span> Patients
     </div>
     <div class="nav-item" onclick="showView('notifications', this)">
       <span class="icon">💬</span> Reminders
@@ -1010,7 +1004,6 @@
   <div class="clinic-info">
     <div style="margin-bottom:6px;"><span class="online-dot"></span><span style="font-size:11px;color:#4CAF50;font-weight:500;">Bot Online</span></div>
     <div class="clinic-name">{{ hospitals[0][1] if hospitals else 'The Riverside Cottage' }}</div>
-    <div class="clinic-sub">Cape Town, WC</div>
   </div>
 </aside>
 
@@ -1029,8 +1022,10 @@
       <div class="stats-grid">
         <div class="stat-card">
           <div class="stat-label">Today's Appointments</div>
-          <div class="stat-value">{{ appointments|length }}</div>
-          <div class="stat-delta delta-up">▲ 3 from yesterday</div>
+          <div class="stat-value">{{ today_count }}</div>
+          <div class="stat-delta {% if today_count > yesterday_count %}delta-up{% endif %}" style="{% if today_count == yesterday_count %}color:var(--ink-muted){% endif %}">
+            {% if today_count > yesterday_count %}▲ {{ today_count - yesterday_count }} from yesterday{% elif today_count < yesterday_count %}▼ {{ yesterday_count - today_count }} from yesterday{% else %}same as yesterday{% endif %}
+          </div>
           <div class="stat-accent">📅</div>
         </div>
         <div class="stat-card">
@@ -1040,14 +1035,14 @@
           <div class="stat-accent">👩‍⚕️</div>
         </div>
         <div class="stat-card">
-          <div class="stat-label">Pending Confirmations</div>
-          <div class="stat-value">0</div>
-          <div class="stat-delta" style="color:var(--ink-muted);">confirmed</div>
+          <div class="stat-label">Upcoming Appointments</div>
+          <div class="stat-value">{{ upcoming_count }}</div>
+          <div class="stat-delta" style="color:var(--ink-muted);">from today onward</div>
           <div class="stat-accent">⏳</div>
         </div>
         <div class="stat-card">
           <div class="stat-label">Reminders Sent Today</div>
-          <div class="stat-value">0</div>
+          <div class="stat-value">{{ reminders_sent_today }}</div>
           <div class="stat-delta" style="color:var(--ink-muted);">today</div>
           <div class="stat-accent">💬</div>
         </div>
@@ -1061,15 +1056,19 @@
             <div class="panel-action" onclick="showView('appointments', document.querySelector('.nav-item:nth-child(2)'))">View all →</div>
           </div>
           <div class="panel-body" style="padding-top:6px;padding-bottom:6px;">
-            {% for appt in appointments[:5] %}
-            <div class="appt-item">
-              <div class="appt-time"><div class="appt-time-main">{{ appt[7].split(':')[0] }}:{{ appt[7].split(':')[1] }}</div><div class="appt-time-period">{{ 'AM' if appt[7].split(':')[0] < '12' else 'PM' }}</div></div>
-              <div class="appt-avatar" style="background:var(--terracotta-light);color:var(--terracotta)">{{ appt[3][:2].upper() }}</div>
-              <div class="appt-info"><div class="appt-name">{{ appt[3] }}</div><div class="appt-detail">{{ appt[2] }} · {{ appt[4] }}</div></div>
-              <span class="status-pill status-confirmed">Confirmed</span>
-              <div class="appt-actions"><div class="icon-btn" onclick="openModal('apptDetail')" title="View">👁</div><div class="icon-btn" title="Reschedule">↺</div></div>
-            </div>
-            {% endfor %}
+            {% if appointments %}
+              {% for appt in appointments[:5] %}
+              <div class="appt-item">
+                <div class="appt-time"><div class="appt-time-main">{{ appt[7].split(':')[0] }}:{{ appt[7].split(':')[1] }}</div><div class="appt-time-period">{{ 'AM' if appt[7].split(':')[0] < '12' else 'PM' }}</div></div>
+                <div class="appt-avatar" style="background:var(--terracotta-light);color:var(--terracotta)">{{ appt[3][:2].upper() }}</div>
+                <div class="appt-info"><div class="appt-name">{{ appt[3] }}</div><div class="appt-detail">{% if appt[3] != appt[2] %}{{ appt[2] }} · {% endif %}{{ appt[4] }}</div></div>
+                <span class="status-pill status-confirmed">Confirmed</span>
+                <div class="appt-actions"><div class="icon-btn" onclick="openModal('apptDetail')" title="View">👁</div><div class="icon-btn" title="Reschedule">↺</div></div>
+              </div>
+              {% endfor %}
+            {% else %}
+              <div style="padding:20px;text-align:center;color:var(--ink-muted);font-size:13px;">No upcoming appointments</div>
+            {% endif %}
           </div>
         </div>
 
@@ -1113,9 +1112,9 @@
     <div class="view" id="view-appointments">
       <div class="tabs">
         <button class="tab active" onclick="filterAppts('all', this)">All ({{ appointments|length }})</button>
-        <button class="tab" onclick="filterAppts('confirmed', this)">Confirmed ({{ appointments|selectattr('status', 'equalto', 'booked')|list|length }})</button>
-        <button class="tab" onclick="filterAppts('pending', this)">Pending (0)</button>
-        <button class="tab" onclick="filterAppts('cancelled', this)">Cancelled (0)</button>
+        <button class="tab" onclick="filterAppts('booked', this)">Booked ({{ booked_count }})</button>
+        <button class="tab" onclick="filterAppts('rescheduled', this)">Rescheduled ({{ rescheduled_count }})</button>
+        <button class="tab" onclick="filterAppts('cancelled', this)">Cancelled ({{ cancelled_count }})</button>
       </div>
 
       <div class="panel">
@@ -1135,20 +1134,19 @@
           <table class="appt-table">
             <thead>
               <tr>
-                <th>Time</th><th>Patient</th><th>Doctor</th><th>Type</th><th>Status</th><th>Reminder</th><th>Actions</th>
+                <th>Time</th><th>Patient</th><th>Doctor</th><th>Status</th><th>Reminder</th><th>Actions</th>
               </tr>
             </thead>
             <tbody id="apptTableBody">
               {% for appt in appointments %}
-              <tr data-appt-id="{{ appt[0] }}" data-doctor-id="{{ appt[1] }}" onclick="showAppointmentDetail({{ appt[0] }}, event)">
+              <tr data-appt-id="{{ appt[0] }}" data-doctor-id="{{ appt[1] }}" data-status="{{ appt[8] }}" onclick="showAppointmentDetail({{ appt[0] }}, event)">
                 <td><strong>{{ appt[7] }}</strong></td>
                 <td><div style="display:flex;align-items:center;gap:9px;">
                   <div style="width:30px;height:30px;border-radius:50%;background:var(--terracotta-light);color:var(--terracotta);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;">{{ appt[3][:2].upper() }}</div>
                   <span>{{ appt[3] }}</span></div></td>
                 <td>{{ appt[4] }}</td>
-                <td>General</td>
                 <td><span class="status-pill status-{{ 'confirmed' if appt[8] == 'booked' else appt[8] }}">{{ 'Confirmed' if appt[8] == 'booked' else appt[8].capitalize() }}</span></td>
-                <td style="font-size:12px;color:var(--ink-muted);">Pending ⏳</td>
+                <td style="font-size:12px;color:var(--ink-muted);">{{ 'Sent' if appt[9] else 'Pending' }}</td>
                 <td><div style="display:flex;gap:5px;"><div class="icon-btn" onclick="event.stopPropagation(); showAppointmentDetail({{ appt[0] }})">👁</div><div class="icon-btn" onclick="event.stopPropagation(); openRescheduleModal({{ appt[0] }})">↺</div><div class="icon-btn" onclick="event.stopPropagation(); openCancelModal({{ appt[0] }})">✕</div></div></td>
               </tr>
               {% endfor %}
@@ -1163,7 +1161,7 @@
       <div class="stats-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:20px;">
         <div class="stat-card">
           <div class="stat-label">Active Today</div>
-          <div class="stat-value" style="font-size:32px;">{{ doctors|selectattr('is_active', 'equalto', 1)|list|length }}/{{ doctors|length }}</div>
+          <div class="stat-value" style="font-size:32px;">{{ active_doctors }}/{{ doctors|length }}</div>
           <div class="stat-delta" style="color:var(--ink-muted);">doctors on duty</div>
         </div>
         <div class="stat-card">
@@ -1191,7 +1189,7 @@
           <div class="doc-avatar" style="background:var(--terracotta-light);color:var(--terracotta);width:48px;height:48px;font-size:17px;">{{ doc[1][:2].upper() }}</div>
           <div class="doc-info">
             <div class="doc-name" style="font-size:15px;">{{ doc[1] }}</div>
-            <div class="doc-specialty">{{ doc[2] }} · {{ appointments|selectattr('doctor_id', 'equalto', doc[0])|list|length }} appts today</div>
+            <div class="doc-specialty">{{ doc[2] }} · {{ appt_counts.get(doc[0], 0) }} appts</div>
           </div>
           <div class="doc-availability-pills">
             {% for day in days %}
@@ -1208,90 +1206,37 @@
     <div class="view" id="view-notifications">
       <div class="reminder-card">
         <div class="panel-header">
-          <div class="panel-title">PhilaConnect Reminder Schedule</div>
-          <span style="font-size:12px;color:var(--ink-muted);">3-touch system · non-intrusive</span>
+          <div class="panel-title">Reminder Schedule</div>
         </div>
         <div class="reminder-timeline">
           <div class="reminder-step">
-            <div class="reminder-dot" style="background:var(--sky-light);color:var(--sky);">📋</div>
-            <div class="reminder-when">48 Hours Before</div>
-            <div class="reminder-desc">Appointment details + easy reschedule link. Sent at booking time or 10am if already within window.</div>
-          </div>
-          <div class="reminder-step">
             <div class="reminder-dot" style="background:var(--amber-light);color:var(--amber);">🌅</div>
-            <div class="reminder-when">Morning Of</div>
-            <div class="reminder-desc">Friendly same-day reminder at 7:00 AM with doctor name, time, and what to bring.</div>
+            <div class="reminder-when">Morning Of (6:00 AM)</div>
+            <div class="reminder-desc">A single reminder is sent at 6am on the day of the appointment, including the doctor name, time, and what to bring.</div>
           </div>
-          <div class="reminder-step">
-            <div class="reminder-dot" style="background:var(--terracotta-light);color:var(--terracotta);">⏱</div>
-            <div class="reminder-when">1 Hour Before</div>
-            <div class="reminder-desc">Final nudge. Includes clinic address and parking/transport tip. Option to confirm arrival.</div>
-          </div>
-        </div>
-        <div style="padding:0 22px 18px;font-size:12.5px;color:var(--ink-muted);border-top:1px solid var(--border);padding-top:14px;margin-top:0;">
-          <strong style="color:var(--ink-soft);">Why 3 messages?</strong> Research shows 4+ reminders increase opt-outs. The 48hr message captures those who need to rearrange work/transport; the morning-of covers sleep-forgetting; the 1hr message prevents no-shows while there's still time to act. No redundant "day before evening" message — covered by morning-of instead.
         </div>
       </div>
 
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
-        <div class="panel">
-          <div class="panel-header"><div class="panel-title">Message Previews</div>
-            <div style="display:flex;gap:6px;">
-              <button class="tab active" onclick="showMsg('48h',this)" style="padding:5px 12px;font-size:12px;">48hr</button>
-              <button class="tab" onclick="showMsg('morning',this)" style="padding:5px 12px;font-size:12px;">Morning</button>
-              <button class="tab" onclick="showMsg('1hr',this)" style="padding:5px 12px;font-size:12px;">1 Hour</button>
-            </div>
-          </div>
-          <div class="panel-body">
-            <div class="wa-preview">
-              <div class="wa-label">PhilaConnect Bot</div>
-              <div class="wa-msg" id="waMsg">
-                Sawubona Patient 👋<br><br>
-                This is a reminder of your appointment at <strong>{{ hospitals[0][1] if hospitals else 'The Riverside Cottage' }}</strong> in <strong>2 days</strong>.<br><br>
-                📅 Thursday, 23 March<br>
-                🕗 08:00 AM<br>
-                👩‍⚕️ Dr. Kotzé-Scott — General<br><br>
-                Need to reschedule? Reply <strong>RESCHEDULE</strong> or tap the link below. Otherwise, we'll see you there! ✅
-                <div class="wa-msg-time">08:05 ✓✓</div>
-              </div>
+      <div class="panel" style="margin-top:20px;">
+        <div class="panel-header"><div class="panel-title">Message Preview</div></div>
+        <div class="panel-body">
+          <div class="wa-preview">
+            <div class="wa-label">PhilaConnect Bot</div>
+            <div class="wa-msg" id="waMsg">
+              Appointment reminder - today.<br><br>
+              Time: 08:00<br>Doctor: Dr. Kotzé-Scott<br>Clinic: {{ hospitals[0][1] if hospitals else 'The Riverside Cottage' }}<br><br>
+              Bring your ID and arrive 10 minutes early.
+              <div class="wa-msg-time">06:00 ✓✓</div>
             </div>
           </div>
         </div>
+      </div>
 
-        <div class="panel">
-          <div class="panel-header"><div class="panel-title">Reminder Stats</div></div>
-          <div class="panel-body">
-            <div style="margin-bottom:18px;">
-              <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px;">
-                <span style="color:var(--ink-soft);">Delivery rate</span>
-                <span style="font-weight:600;">96%</span>
-              </div>
-              <div style="background:var(--border);border-radius:20px;height:7px;overflow:hidden;">
-                <div style="background:var(--sage);width:96%;height:100%;border-radius:20px;"></div>
-              </div>
-            </div>
-            <div style="margin-bottom:18px;">
-              <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px;">
-                <span style="color:var(--ink-soft);">Reschedule rate (48hr msg)</span>
-                <span style="font-weight:600;">14%</span>
-              </div>
-              <div style="background:var(--border);border-radius:20px;height:7px;overflow:hidden;">
-                <div style="background:var(--sky);width:14%;height:100%;border-radius:20px;"></div>
-              </div>
-            </div>
-            <div style="margin-bottom:18px;">
-              <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px;">
-                <span style="color:var(--ink-soft);">No-show reduction</span>
-                <span style="font-weight:600;">−38%</span>
-              </div>
-              <div style="background:var(--border);border-radius:20px;height:7px;overflow:hidden;">
-                <div style="background:var(--terracotta);width:38%;height:100%;border-radius:20px;"></div>
-              </div>
-            </div>
-            <div style="background:var(--cream);border-radius:10px;padding:14px;font-size:12.5px;line-height:1.6;color:var(--ink-soft);">
-              📊 <strong>This week:</strong> 72 reminders sent · 69 delivered · 10 rescheduled · 3 no-shows
-            </div>
-          </div>
+      <div class="panel" style="margin-top:20px;">
+        <div class="panel-header"><div class="panel-title">Reminders Sent Today</div></div>
+        <div class="panel-body">
+          <div style="font-size:32px;font-weight:600;color:var(--ink);">{{ reminders_sent_today }}</div>
+          <div style="font-size:13px;color:var(--ink-muted);margin-top:4px;">patients notified this morning</div>
         </div>
       </div>
     </div>
@@ -1353,30 +1298,16 @@
           <div class="panel-title">WhatsApp Integration</div>
         </div>
         <div class="panel-body">
-          <div style="margin-bottom:16px;">
-            <div style="display:flex;align-items:center;justify-content:space-between;padding:12px;background:var(--sage-light);border-radius:8px;color:var(--sage);">
-              <span style="font-weight:500;">✅ Bot Status: Active</span>
-              <span style="font-size:12px;">Connected & Ready</span>
-            </div>
-          </div>
           <div style="margin-bottom:12px;">
-            <div class="form-label">Notification Preferences</div>
+            <div class="form-label">Active Notifications</div>
           </div>
-          <label style="display:flex;align-items:center;gap:10px;margin-bottom:10px;cursor:pointer;">
-            <input type="checkbox" checked>
-            <span style="font-size:13px;">Send 48-hour appointment reminders</span>
+          <label style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+            <input type="checkbox" checked disabled>
+            <span style="font-size:13px;">Morning-of reminder (6:00 AM on appointment day)</span>
           </label>
-          <label style="display:flex;align-items:center;gap:10px;margin-bottom:10px;cursor:pointer;">
-            <input type="checkbox" checked>
-            <span style="font-size:13px;">Send morning-of reminders</span>
-          </label>
-          <label style="display:flex;align-items:center;gap:10px;margin-bottom:10px;cursor:pointer;">
-            <input type="checkbox" checked>
-            <span style="font-size:13px;">Send 1-hour before reminders</span>
-          </label>
-          <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
-            <input type="checkbox" checked>
-            <span style="font-size:13px;">Send cancellation/reschedule notifications</span>
+          <label style="display:flex;align-items:center;gap:10px;">
+            <input type="checkbox" checked disabled>
+            <span style="font-size:13px;">Cancellation and reschedule notifications</span>
           </label>
         </div>
       </div>
@@ -1387,19 +1318,8 @@
           <div class="panel-title">Appointment Alerts</div>
         </div>
         <div class="panel-body">
-          <div style="margin-bottom:12px;">
-            <div class="form-label">Alert Notification Style</div>
-          </div>
-          <label style="display:flex;align-items:center;gap:10px;margin-bottom:10px;cursor:pointer;">
-            <input type="radio" name="alertStyle" checked>
-            <span style="font-size:13px;">Pop-up on dashboard screen (non-intrusive)</span>
-          </label>
-          <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
-            <input type="radio" name="alertStyle">
-            <span style="font-size:13px;">Email notification</span>
-          </label>
-          <div style="margin-top:16px;padding:12px;background:var(--sky-light);border-radius:8px;color:var(--sky);font-size:12px;">
-            📢 When an appointment reaches its scheduled time, you'll receive an alert on the dashboard. The alert will appear as a floating notification in the bottom-right corner without interrupting your work.
+          <div style="padding:12px;background:var(--sky-light);border-radius:8px;color:var(--sky);font-size:12px;">
+            When an appointment reaches its scheduled time, an alert appears on the dashboard as a floating notification in the bottom-right corner.
           </div>
         </div>
       </div>
@@ -1412,20 +1332,20 @@
         <div class="panel-body">
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;font-size:13px;">
             <div>
-              <div style="color:var(--ink-muted);margin-bottom:4px;font-weight:500;">App Version</div>
-              <div style="color:var(--ink);">PhilaConnect v2.0</div>
-            </div>
-            <div>
-              <div style="color:var(--ink-muted);margin-bottom:4px;font-weight:500;">Database Status</div>
-              <div style="color:var(--sage);">✓ Operational</div>
-            </div>
-            <div>
               <div style="color:var(--ink-muted);margin-bottom:4px;font-weight:500;">Total Appointments</div>
               <div style="color:var(--ink);">{{ appointments|length }}</div>
             </div>
             <div>
-              <div style="color:var(--ink-muted);margin-bottom:4px;font-weight:500;">API Last Check</div>
-              <div style="color:var(--ink);">Just now</div>
+              <div style="color:var(--ink-muted);margin-bottom:4px;font-weight:500;">Total Doctors</div>
+              <div style="color:var(--ink);">{{ doctors|length }}</div>
+            </div>
+            <div>
+              <div style="color:var(--ink-muted);margin-bottom:4px;font-weight:500;">Active Doctors</div>
+              <div style="color:var(--ink);">{{ active_doctors }}</div>
+            </div>
+            <div>
+              <div style="color:var(--ink-muted);margin-bottom:4px;font-weight:500;">Reminders Sent Today</div>
+              <div style="color:var(--ink);">{{ reminders_sent_today }}</div>
             </div>
           </div>
         </div>
@@ -1466,7 +1386,7 @@
         </div>
         <div class="form-group"><label class="form-label">Notes</label><input class="form-input" name="notes" placeholder="Optional notes for the doctor"></div>
         <div style="background:var(--sage-light);border-radius:8px;padding:12px 14px;font-size:12.5px;color:var(--sage);margin-top:4px;">
-          ✅ WhatsApp reminders will be sent automatically: 48hrs before, morning of, and 1 hour before.
+          A WhatsApp reminder will be sent to the patient at 6am on the day of the appointment.
         </div>
       </div>
       <div class="modal-footer">
@@ -1623,9 +1543,9 @@
     document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
     if(navEl) navEl.classList.add('active');
 
-    const titles = {dashboard:'Today\'s Overview',appointments:'Appointments',schedule:'Weekly Schedule',doctors:'Doctor Management',patients:'Patients',notifications:'Reminder Settings'};
+    const titles = {dashboard:'Today\'s Overview',appointments:'Appointments',doctors:'Doctor Management',notifications:'Reminder Settings'};
     document.getElementById('pageTitle').textContent = titles[name]||name;
-    if(name==='appointments') renderApptTable();
+    if(name==='appointments') filterAppts('all', document.querySelector('#view-appointments .tab.active'));
   }
 
   // ── MODALS ──
@@ -1666,19 +1586,6 @@
       headers: {'Content-Type': 'application/x-www-form-urlencoded'},
       body: new URLSearchParams({doctor_id: doctorId, available_days: activeDays})
     });
-  }
-
-  // ── WHATSAPP MESSAGES ──
-  const msgs = {
-    '48h': `Sawubona Patient 👋<br><br>This is a reminder of your appointment at <strong>{{ hospitals[0][1] if hospitals else 'The Riverside Cottage' }}</strong> in <strong>2 days</strong>.<br><br>📅 Thursday, 23 March<br>🕗 08:00 AM<br>👩‍⚕️ Dr. Kotzé-Scott — General<br><br>Need to reschedule? Reply <strong>RESCHEDULE</strong> or tap the link below. Otherwise, we'll see you there! ✅<div class="wa-msg-time">08:05 ✓✓</div>`,
-    'morning': `Good morning Patient ☀️<br><br>Just a friendly reminder — you have an appointment <strong>today</strong>!<br><br>🕗 08:00 AM<br>👩‍⚕️ Dr. Kotzé-Scott<br>📍 {{ hospitals[0][1] if hospitals else 'The Riverside Cottage' }}, Site C<br><br>Please bring your <strong>ID/clinic card</strong> and arrive 10 mins early. See you soon!<div class="wa-msg-time">07:00 ✓✓</div>`,
-    '1hr': `Hi Patient, your appointment is in <strong>1 hour</strong> ⏱<br><br>08:00 AM · Dr. Kotzé-Scott · {{ hospitals[0][1] if hospitals else 'The Riverside Cottage' }}<br><br>🚌 Taxi to Station, then 5 min walk<br>🚗 Park at Gate 2<br><br>Running late? Reply <strong>LATE</strong> and we'll let the clinic know. ❤️<div class="wa-msg-time">07:00 ✓✓</div>`
-  };
-
-  function showMsg(type, el) {
-    document.querySelectorAll('#view-notifications .tab').forEach(t=>t.classList.remove('active'));
-    el.classList.add('active');
-    document.getElementById('waMsg').innerHTML = msgs[type];
   }
 
   // ── APPOINTMENT DETAIL ──
@@ -1802,6 +1709,16 @@
       });
   }
   
+  // ── APPOINTMENT FILTER ──
+  function filterAppts(status, el) {
+    document.querySelectorAll('#view-appointments .tab').forEach(t => t.classList.remove('active'));
+    if(el) el.classList.add('active');
+    const rows = document.querySelectorAll('#apptTableBody tr');
+    rows.forEach(row => {
+      row.style.display = (status === 'all' || row.dataset.status === status) ? '' : 'none';
+    });
+  }
+
   function filterByDoctor(select) {
     const doctorId = select.value;
     const rows = document.querySelectorAll('#apptTableBody tr');
@@ -1962,26 +1879,34 @@
         
         // ─ Update upcoming appointments panel (dashboard view) ─
         const upcomingPanel = document.querySelector('[id="view-dashboard"] .panel-body');
-        if(upcomingPanel && appointments.length > 0) {
-          let html = '';
-          appointments.slice(0, 5).forEach(appt => {
-            const statusClass = appt.status === 'booked' ? 'status-confirmed' : `status-${appt.status}`;
-            const statusLabel = appt.status === 'booked' ? 'Confirmed' : appt.status.charAt(0).toUpperCase() + appt.status.slice(1);
-            const displayName = appt.patient_name || appt.phone;
-            const initials = displayName.substring(0, 2).toUpperCase();
-            const timeParts = appt.time.split(':');
-            const period = parseInt(timeParts[0]) < 12 ? 'AM' : 'PM';
-            html += `
-              <div class="appt-item">
-                <div class="appt-time"><div class="appt-time-main">${timeParts[0]}</div><div class="appt-time-period">${period}</div></div>
-                <div class="appt-avatar" style="background:var(--terracotta-light);color:var(--terracotta)">${initials}</div>
-                <div class="appt-info"><div class="appt-name">${displayName}</div><div class="appt-detail">${appt.phone} · ${appt.doctor_name}</div></div>
-                <span class="status-pill ${statusClass}">${statusLabel}</span>
-                <div class="appt-actions"><div class="icon-btn" onclick="showAppointmentDetail(${appt.id})">👁</div><div class="icon-btn" onclick="openRescheduleModal(${appt.id})">↺</div></div>
-              </div>`;
-          });
+        if(upcomingPanel) {
+          const localToday = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD in local time
+          const upcoming = appointments
+            .filter(a => a.date >= localToday && ['booked','rescheduled'].includes(a.status))
+            .sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time));
 
-          // Only update if content actually changed
+          let html = '';
+          if(upcoming.length === 0) {
+            html = '<div style="padding:20px;text-align:center;color:var(--ink-muted);font-size:13px;">No upcoming appointments</div>';
+          } else {
+            upcoming.slice(0, 5).forEach(appt => {
+              const statusClass = appt.status === 'booked' ? 'status-confirmed' : `status-${appt.status}`;
+              const statusLabel = appt.status === 'booked' ? 'Confirmed' : appt.status.charAt(0).toUpperCase() + appt.status.slice(1);
+              const displayName = appt.patient_name || appt.phone;
+              const initials = displayName.substring(0, 2).toUpperCase();
+              const timeParts = appt.time.split(':');
+              const period = parseInt(timeParts[0]) < 12 ? 'AM' : 'PM';
+              html += `
+                <div class="appt-item">
+                  <div class="appt-time"><div class="appt-time-main">${timeParts[0]}</div><div class="appt-time-period">${period}</div></div>
+                  <div class="appt-avatar" style="background:var(--terracotta-light);color:var(--terracotta)">${initials}</div>
+                  <div class="appt-info"><div class="appt-name">${displayName}</div><div class="appt-detail">${appt.patient_name !== appt.phone ? appt.phone + ' · ' : ''}${appt.doctor_name}</div></div>
+                  <span class="status-pill ${statusClass}">${statusLabel}</span>
+                  <div class="appt-actions"><div class="icon-btn" onclick="showAppointmentDetail(${appt.id})">👁</div><div class="icon-btn" onclick="openRescheduleModal(${appt.id})">↺</div></div>
+                </div>`;
+            });
+          }
+
           if(upcomingPanel.innerHTML !== html) {
             upcomingPanel.innerHTML = html;
           }
@@ -1997,15 +1922,14 @@
             const displayName = appt.patient_name || appt.phone;
             const initials = displayName.substring(0, 2).toUpperCase();
             tableHtml += `
-              <tr data-appt-id="${appt.id}" data-doctor-id="${appt.doctor_id}" onclick="showAppointmentDetail(${appt.id}, event)">
+              <tr data-appt-id="${appt.id}" data-doctor-id="${appt.doctor_id}" data-status="${appt.status}" onclick="showAppointmentDetail(${appt.id}, event)">
                 <td><strong>${appt.time}</strong></td>
                 <td><div style="display:flex;align-items:center;gap:9px;">
                   <div style="width:30px;height:30px;border-radius:50%;background:var(--terracotta-light);color:var(--terracotta);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;">${initials}</div>
                   <span>${displayName}</span></div></td>
                 <td>${appt.doctor_name}</td>
-                <td>General</td>
                 <td><span class="status-pill ${statusClass}">${statusLabel}</span></td>
-                <td style="font-size:12px;color:var(--ink-muted);">Pending ⏳</td>
+                <td style="font-size:12px;color:var(--ink-muted);">${appt.reminder_sent ? 'Sent' : 'Pending'}</td>
                 <td><div style="display:flex;gap:5px;"><div class="icon-btn" onclick="event.stopPropagation();showAppointmentDetail(${appt.id})">👁</div><div class="icon-btn" onclick="event.stopPropagation();openRescheduleModal(${appt.id})">↺</div><div class="icon-btn" onclick="event.stopPropagation();openCancelModal(${appt.id})">✕</div></div></td>
               </tr>
             `;
@@ -2016,15 +1940,12 @@
           }
         }
         
-        // ─ Update stats ─
+        // ─ Update today's appointment count only ─
         const statValues = document.querySelectorAll('.stat-value');
         if(statValues.length > 0) {
-          const today = new Date().toISOString().split('T')[0];
-          const todayCount = appointments.filter(a => a.date === today).length;
+          const localToday = new Date().toLocaleDateString('en-CA');
+          const todayCount = appointments.filter(a => a.date === localToday && ['booked','rescheduled'].includes(a.status)).length;
           if(statValues[0]) statValues[0].textContent = todayCount;
-          
-          const bookedCount = appointments.filter(a => a.status === 'booked').length;
-          if(statValues[1]) statValues[1].textContent = appointments.length;  // Total appointments
         }
         
         // Update count
@@ -2035,8 +1956,8 @@
       });
   }
   
-  // Start auto-refresh every 5 seconds (seamless, no visible flicker)
-  setInterval(autoRefreshDashboard, 5000);
+  // Auto-refresh every 2 seconds for near-instant updates
+  setInterval(autoRefreshDashboard, 2000);
   
   // Initial refresh to populate cache and display
   autoRefreshDashboard();

@@ -1,5 +1,5 @@
 from whatsapp import send_message, send_list
-from db import set_state, get_state, get_hospitals, get_doctors, get_doctors_all, get_available_dates, get_available_times, book_appointment, get_appointments, cancel_appointment, get_user_profile, set_user_profile
+from db import set_state, get_state, get_hospitals, get_doctors, get_doctors_all, get_available_dates, get_available_times, book_appointment, get_appointments, cancel_appointment, get_user_profile, set_user_profile, DB_FILE
 import re
 import sqlite3
 from datetime import datetime
@@ -159,14 +159,27 @@ def handle_message(data):
             resolved_time = data.get('time_fallback', {}).get(text)
 
         if resolved_time:
+            if 'doctor_id' not in data or 'date' not in data:
+                print(f"[select_time] missing session data for {phone}: {data}")
+                send_message(phone, "Session expired. Reply 'menu' to start over.")
+                set_state(phone, None, {})
+                return
             times = get_available_times(data['doctor_id'], data['date'])
+            print(f"[select_time] resolved_time={resolved_time}, available={times}")
             if resolved_time in times:
-                appointment_id = book_appointment(phone, data['doctor_id'], data['date'], resolved_time)
+                try:
+                    appointment_id = book_appointment(phone, data['doctor_id'], data['date'], resolved_time)
+                    print(f"[select_time] booked appointment_id={appointment_id} for {phone}")
+                except Exception as e:
+                    print(f"[select_time] book_appointment failed for {phone}: {e}")
+                    send_message(phone, "Something went wrong saving your appointment. Please try again.")
+                    return
                 set_state(phone, None, {})
                 date_obj = datetime.strptime(data['date'], '%Y-%m-%d')
                 date_label = date_obj.strftime('%A, %d %B %Y')
                 send_message(phone, f"Appointment confirmed.\n\nDate: {date_label}\nTime: {_fmt_time(resolved_time)}\nRef: {appointment_id}\n\nReply 'menu' for the main menu.")
             else:
+                print(f"[select_time] time not in available list: {resolved_time} not in {times}")
                 send_message(phone, "Invalid selection. Please choose from the list.")
         else:
             send_message(phone, "Please select a time from the list.")
@@ -229,7 +242,7 @@ def handle_message(data):
         if resolved_time:
             times = get_available_times(data['doctor_id'], data['new_date'])
             if resolved_time in times:
-                conn = sqlite3.connect('philaconnect.db')
+                conn = sqlite3.connect(DB_FILE)
                 c = conn.cursor()
                 c.execute('UPDATE appointments SET status = "cancelled" WHERE id = ?', (data['reschedule_id'],))
                 c.execute('INSERT INTO appointments (phone, doctor_id, date, time, status) VALUES (?, ?, ?, ?, "booked")',
@@ -373,15 +386,14 @@ def send_date_list(phone, doctor_id, context=None):
         sections.append({"title": "Upcoming", "rows": make_rows(later)})
 
     data = dict(context or {})
+    all_dates = [r['id'].replace('date_', '') for s in sections for r in s['rows']]
+    data['date_fallback'] = {str(i): d for i, d in enumerate(all_dates, 1)}
     set_state(phone, 'select_date', data)
     if not send_list(phone, "Select a date:", "View Dates", sections):
-        all_dates = [r['id'].replace('date_', '') for s in sections for r in s['rows']]
         msg = "Select a date (reply with number):\n\n"
         for i, d in enumerate(all_dates, 1):
             date_obj = datetime.strptime(d, '%Y-%m-%d')
             msg += f"{i}. {date_obj.strftime('%a %d %b')}\n"
-        data['date_fallback'] = {str(i): d for i, d in enumerate(all_dates, 1)}
-        set_state(phone, 'select_date', data)
         send_message(phone, msg.strip())
 
 
@@ -407,14 +419,13 @@ def send_time_list(phone, doctor_id, date, context=None, prefix='time'):
     date_label = f"{date_obj.strftime('%a')} {date_obj.day} {date_obj.strftime('%b')}"
 
     data = dict(context or {})
+    all_times = [r['id'].replace(f'{prefix}_', '') for s in sections for r in s['rows']]
+    data['time_fallback'] = {str(i): t for i, t in enumerate(all_times, 1)}
     set_state(phone, 'select_time', data)
     if not send_list(phone, f"Date: {date_label}\n\nSelect a time:", "View Times", sections):
-        all_times = [r['id'].replace(f'{prefix}_', '') for s in sections for r in s['rows']]
         msg = "Select a time (reply with number):\n\n"
         for i, t in enumerate(all_times, 1):
             msg += f"{i}. {_fmt_time(t)}\n"
-        data['time_fallback'] = {str(i): t for i, t in enumerate(all_times, 1)}
-        set_state(phone, 'select_time', data)
         send_message(phone, msg.strip())
 
 

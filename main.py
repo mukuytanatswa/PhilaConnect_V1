@@ -3,7 +3,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from logic import handle_message
-from db import get_appointments, toggle_doctor, get_doctors_all, get_hospitals, book_appointment, update_doctor_availability, cancel_appointment, reschedule_appointment, get_user_profile, mark_appointment_completed, get_upcoming_appointments, mark_reminder_sent
+from db import get_appointments, toggle_doctor, get_doctors_all, get_hospitals, book_appointment, update_doctor_availability, cancel_appointment, reschedule_appointment, get_user_profile, mark_appointment_completed, get_upcoming_appointments, mark_reminder_sent, get_today_count, get_yesterday_count, get_reminders_sent_today, get_upcoming_count, DB_FILE
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from whatsapp import send_message
 import asyncio
@@ -50,7 +50,28 @@ async def dashboard(request: Request):
         for appt in appointments:
             doc_id = appt[1]
             appt_counts[doc_id] = appt_counts.get(doc_id, 0) + 1
-        return templates.TemplateResponse("dashboard.html", {"request": request, "appointments": appointments, "doctors": doctors, "hospitals": hospitals, "active_doctors": active_doctors, "appt_counts": appt_counts})
+        today_count = get_today_count()
+        yesterday_count = get_yesterday_count()
+        reminders_sent_today = get_reminders_sent_today()
+        upcoming_count = get_upcoming_count()
+        booked_count = sum(1 for a in appointments if a[8] == 'booked')
+        rescheduled_count = sum(1 for a in appointments if a[8] == 'rescheduled')
+        cancelled_count = sum(1 for a in appointments if a[8] == 'cancelled')
+        return templates.TemplateResponse("dashboard.html", {
+            "request": request,
+            "appointments": appointments,
+            "doctors": doctors,
+            "hospitals": hospitals,
+            "active_doctors": active_doctors,
+            "appt_counts": appt_counts,
+            "today_count": today_count,
+            "yesterday_count": yesterday_count,
+            "reminders_sent_today": reminders_sent_today,
+            "upcoming_count": upcoming_count,
+            "booked_count": booked_count,
+            "rescheduled_count": rescheduled_count,
+            "cancelled_count": cancelled_count,
+        })
     except Exception as e:
         # Log the error and return a simple error page
         print(f"Error loading dashboard: {e}")
@@ -97,7 +118,7 @@ async def add_doc(
 ):
     name = f"Dr. {first_name} {surname}"
     hospital_id = get_hospitals()[0][0]  # Assume first hospital
-    conn = sqlite3.connect('philaconnect.db')
+    conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
     c.execute('INSERT INTO doctors (name, specialty, hospital_id, available_days) VALUES (?, ?, ?, ?)', (name, specialty, hospital_id, 'Mon,Tue,Wed,Thu,Fri'))
     conn.commit()
@@ -110,7 +131,7 @@ async def cancel_appt(appointment_id: int = Form(...), cancel_message: str = For
     try:
         cancel_appointment(appointment_id)
         # Get appointment details
-        conn = sqlite3.connect('philaconnect.db')
+        conn = sqlite3.connect(DB_FILE)
         c = conn.cursor()
         c.execute('SELECT phone, id FROM appointments WHERE id = ?', (appointment_id,))
         row = c.fetchone()
@@ -137,7 +158,7 @@ async def reschedule_appt(
 ):
     """Reschedule an appointment and notify the patient"""
     try:
-        conn = sqlite3.connect('philaconnect.db')
+        conn = sqlite3.connect(DB_FILE)
         c = conn.cursor()
         c.execute('SELECT phone FROM appointments WHERE id = ?', (appointment_id,))
         row = c.fetchone()
@@ -159,7 +180,7 @@ async def reschedule_appt(
 async def get_appointment_detail(appointment_id: int):
     """Get appointment details as JSON"""
     try:
-        conn = sqlite3.connect('philaconnect.db')
+        conn = sqlite3.connect(DB_FILE)
         c = conn.cursor()
         c.execute('''SELECT a.id, a.phone,
                             COALESCE(up.name, a.phone) AS patient_name,
@@ -204,7 +225,8 @@ async def get_appointments_data():
                 "hospital": appt[5],
                 "date": appt[6],
                 "time": appt[7],
-                "status": appt[8]
+                "status": appt[8],
+                "reminder_sent": appt[9]
             })
         return {"appointments": result, "count": len(result)}
     except Exception as e:

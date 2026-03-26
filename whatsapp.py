@@ -8,6 +8,7 @@ PHONE_ID = os.getenv("WHATSAPP_PHONE_ID", "1056110920899451")
 def send_list(phone, body_text, button_text, sections):
     """Send a WhatsApp interactive list message."""
     try:
+        
         url = f"https://graph.facebook.com/v18.0/{PHONE_ID}/messages"
         headers = {
             "Authorization": f"Bearer {TOKEN}",
