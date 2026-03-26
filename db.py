@@ -147,7 +147,7 @@ def get_doctors(hospital_id):
     conn.close()
     return doctors
 
-def get_available_dates(doctor_id, days_ahead=14):
+def get_available_dates(doctor_id, days_ahead=10):
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
     c.execute('SELECT available_days FROM doctors WHERE id = ?', (doctor_id,))

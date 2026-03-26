@@ -57,8 +57,7 @@ async def dashboard(request: Request):
         booked_count = sum(1 for a in appointments if a[8] == 'booked')
         rescheduled_count = sum(1 for a in appointments if a[8] == 'rescheduled')
         cancelled_count = sum(1 for a in appointments if a[8] == 'cancelled')
-        return templates.TemplateResponse("dashboard.html", {
-            "request": request,
+        return templates.TemplateResponse(request, "dashboard.html", {
             "appointments": appointments,
             "doctors": doctors,
             "hospitals": hospitals,
