@@ -99,7 +99,7 @@ async def add_doc(
     hospital_id = get_hospitals()[0][0]  # Assume first hospital
     conn = sqlite3.connect('philaconnect.db')
     c = conn.cursor()
-    c.execute('INSERT INTO doctors (name, specialty, hospital_id) VALUES (?, ?, ?)', (name, specialty, hospital_id))
+    c.execute('INSERT INTO doctors (name, specialty, hospital_id, available_days) VALUES (?, ?, ?, ?)', (name, specialty, hospital_id, 'Mon,Tue,Wed,Thu,Fri'))
     conn.commit()
     conn.close()
     return RedirectResponse(url="/dashboard", status_code=303)

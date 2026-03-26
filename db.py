@@ -63,6 +63,9 @@ def init_db():
     if 'available_days' not in columns:
         c.execute("ALTER TABLE doctors ADD COLUMN available_days TEXT DEFAULT 'Mon,Tue,Wed,Thu,Fri,Sat,Sun'")
 
+    # Backfill any doctors missing available_days
+    c.execute("UPDATE doctors SET available_days = 'Mon,Tue,Wed,Thu,Fri' WHERE available_days IS NULL OR available_days = ''")
+
     # Insert sample data if not exists
     c.execute('SELECT COUNT(*) FROM hospitals')
     if c.fetchone()[0] == 0:
