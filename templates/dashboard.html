@@ -402,6 +402,7 @@
   .status-pending { background: var(--amber-light); color: var(--amber); }
   .status-cancelled { background: var(--terracotta-light); color: var(--terracotta); }
   .status-completed { background: #E8E0D8; color: var(--ink-soft); }
+  .status-no_show { background: var(--amber-light); color: var(--amber); }
 
   .appt-actions {
     display: flex;
@@ -1114,6 +1115,7 @@
         <button class="tab active" onclick="filterAppts('all', this)">All ({{ appointments|length }})</button>
         <button class="tab" onclick="filterAppts('booked', this)">Booked ({{ booked_count }})</button>
         <button class="tab" onclick="filterAppts('rescheduled', this)">Rescheduled ({{ rescheduled_count }})</button>
+        <button class="tab" onclick="filterAppts('no_show', this)">No Show ({{ no_show_count }})</button>
         <button class="tab" onclick="filterAppts('cancelled', this)">Cancelled ({{ cancelled_count }})</button>
       </div>
 
@@ -1145,9 +1147,9 @@
                   <div style="width:30px;height:30px;border-radius:50%;background:var(--terracotta-light);color:var(--terracotta);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;">{{ appt[3][:2].upper() }}</div>
                   <span>{{ appt[3] }}</span></div></td>
                 <td>{{ appt[4] }}</td>
-                <td><span class="status-pill status-{{ 'confirmed' if appt[8] == 'booked' else appt[8] }}">{{ 'Confirmed' if appt[8] == 'booked' else appt[8].capitalize() }}</span></td>
+                <td><span class="status-pill status-{{ 'confirmed' if appt[8] == 'booked' else ('no_show' if appt[8] == 'no_show' else appt[8]) }}">{{ 'Confirmed' if appt[8] == 'booked' else ('No Show' if appt[8] == 'no_show' else appt[8].capitalize()) }}</span></td>
                 <td style="font-size:12px;color:var(--ink-muted);">{{ 'Sent' if appt[9] else 'Pending' }}</td>
-                <td><div style="display:flex;gap:5px;"><div class="icon-btn" onclick="event.stopPropagation(); showAppointmentDetail({{ appt[0] }})">👁</div><div class="icon-btn" onclick="event.stopPropagation(); openRescheduleModal({{ appt[0] }})">↺</div><div class="icon-btn" onclick="event.stopPropagation(); openCancelModal({{ appt[0] }})">✕</div></div></td>
+                <td><div style="display:flex;gap:5px;"><div class="icon-btn" onclick="event.stopPropagation();showAppointmentDetail({{ appt[0] }})">👁</div>{% if appt[8] in ['booked','rescheduled'] %}<div class="icon-btn" title="Mark Present" onclick="event.stopPropagation();markPresent({{ appt[0] }})" style="color:var(--sage)">✓</div><div class="icon-btn" title="No Show" onclick="event.stopPropagation();markNoShow({{ appt[0] }})" style="color:var(--amber)">✗</div>{% endif %}<div class="icon-btn" onclick="event.stopPropagation();openRescheduleModal({{ appt[0] }})">↺</div><div class="icon-btn" onclick="event.stopPropagation();openCancelModal({{ appt[0] }})">✕</div></div></td>
               </tr>
               {% endfor %}
             </tbody>
@@ -1851,6 +1853,16 @@
   let autoRefreshEnabled = true;
   let lastApptCount = 0;
   
+  function markPresent(id) {
+    fetch('/api/appointment/complete', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({appointment_id: id})})
+      .then(() => autoRefreshDashboard());
+  }
+
+  function markNoShow(id) {
+    fetch('/api/appointment/no-show', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({appointment_id: id})})
+      .then(() => autoRefreshDashboard());
+  }
+
   function autoRefreshDashboard() {
     if (!autoRefreshEnabled) return;
     
@@ -1918,9 +1930,12 @@
           let tableHtml = '';
           appointments.forEach(appt => {
             const statusClass = appt.status === 'booked' ? 'status-confirmed' : `status-${appt.status}`;
-            const statusLabel = appt.status === 'booked' ? 'Confirmed' : appt.status.charAt(0).toUpperCase() + appt.status.slice(1);
+            const statusLabel = appt.status === 'booked' ? 'Confirmed' : appt.status === 'no_show' ? 'No Show' : appt.status.charAt(0).toUpperCase() + appt.status.slice(1);
             const displayName = appt.patient_name || appt.phone;
             const initials = displayName.substring(0, 2).toUpperCase();
+            const attendanceBtns = (appt.status === 'booked' || appt.status === 'rescheduled') ? `
+              <div class="icon-btn" title="Mark Present" onclick="event.stopPropagation();markPresent(${appt.id})" style="color:var(--sage)">✓</div>
+              <div class="icon-btn" title="No Show" onclick="event.stopPropagation();markNoShow(${appt.id})" style="color:var(--amber)">✗</div>` : '';
             tableHtml += `
               <tr data-appt-id="${appt.id}" data-doctor-id="${appt.doctor_id}" data-status="${appt.status}" onclick="showAppointmentDetail(${appt.id}, event)">
                 <td><strong>${appt.time}</strong></td>
@@ -1930,7 +1945,7 @@
                 <td>${appt.doctor_name}</td>
                 <td><span class="status-pill ${statusClass}">${statusLabel}</span></td>
                 <td style="font-size:12px;color:var(--ink-muted);">${appt.reminder_sent ? 'Sent' : 'Pending'}</td>
-                <td><div style="display:flex;gap:5px;"><div class="icon-btn" onclick="event.stopPropagation();showAppointmentDetail(${appt.id})">👁</div><div class="icon-btn" onclick="event.stopPropagation();openRescheduleModal(${appt.id})">↺</div><div class="icon-btn" onclick="event.stopPropagation();openCancelModal(${appt.id})">✕</div></div></td>
+                <td><div style="display:flex;gap:5px;"><div class="icon-btn" onclick="event.stopPropagation();showAppointmentDetail(${appt.id})">👁</div>${attendanceBtns}<div class="icon-btn" onclick="event.stopPropagation();openRescheduleModal(${appt.id})">↺</div><div class="icon-btn" onclick="event.stopPropagation();openCancelModal(${appt.id})">✕</div></div></td>
               </tr>
             `;
           });

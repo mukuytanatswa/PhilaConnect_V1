@@ -3,7 +3,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from logic import handle_message
-from db import get_appointments, toggle_doctor, get_doctors_all, get_hospitals, book_appointment, update_doctor_availability, cancel_appointment, reschedule_appointment, get_user_profile, mark_appointment_completed, get_upcoming_appointments, mark_reminder_sent, get_today_count, get_yesterday_count, get_reminders_sent_today, get_upcoming_count, DB_FILE
+from db import get_appointments, toggle_doctor, get_doctors_all, get_hospitals, book_appointment, update_doctor_availability, cancel_appointment, reschedule_appointment, get_user_profile, mark_appointment_completed, mark_no_show, cancel_old_no_shows, get_upcoming_appointments, mark_reminder_sent, get_today_count, get_yesterday_count, get_reminders_sent_today, get_upcoming_count, DB_FILE
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from whatsapp import send_message
 import asyncio
@@ -57,6 +57,7 @@ async def dashboard(request: Request):
         booked_count = sum(1 for a in appointments if a[8] == 'booked')
         rescheduled_count = sum(1 for a in appointments if a[8] == 'rescheduled')
         cancelled_count = sum(1 for a in appointments if a[8] == 'cancelled')
+        no_show_count = sum(1 for a in appointments if a[8] == 'no_show')
         return templates.TemplateResponse(request, "dashboard.html", {
             "appointments": appointments,
             "doctors": doctors,
@@ -70,6 +71,7 @@ async def dashboard(request: Request):
             "booked_count": booked_count,
             "rescheduled_count": rescheduled_count,
             "cancelled_count": cancelled_count,
+            "no_show_count": no_show_count,
         })
     except Exception as e:
         # Log the error and return a simple error page
@@ -307,6 +309,36 @@ async def update_clinic_settings(
     # For now, just return success - implement full settings later
     return {"status": "ok", "message": "Settings saved"}
 
+@app.post("/api/appointment/no-show")
+async def mark_no_show_appt(request: Request):
+    """Mark an appointment as no-show and notify the patient"""
+    try:
+        data = await request.json()
+        appointment_id = data.get("appointment_id")
+        if not appointment_id:
+            return {"error": "No appointment ID provided"}
+        mark_no_show(appointment_id)
+        conn = sqlite3.connect(DB_FILE)
+        c = conn.cursor()
+        c.execute('''SELECT a.phone, COALESCE(up.name, a.phone), d.name, a.date, a.time
+                     FROM appointments a
+                     JOIN doctors d ON a.doctor_id = d.id
+                     LEFT JOIN user_profiles up ON a.phone = up.phone
+                     WHERE a.id = ?''', (appointment_id,))
+        row = c.fetchone()
+        conn.close()
+        if row:
+            phone, patient_name, doc_name, date, appt_time = row
+            first_name = patient_name.split()[0]
+            msg = (f"Hi {first_name}, you missed your appointment with {doc_name} "
+                   f"on {date} at {appt_time}.\n\n"
+                   f"You can reschedule — reply 'menu' then choose option 2.\n\n"
+                   f"This option is available for 24 hours.")
+            send_message(phone, msg)
+        return {"status": "ok", "message": "Appointment marked as no-show and patient notified"}
+    except Exception as e:
+        return {"error": str(e)}
+
 @app.post("/api/appointment/complete")
 async def mark_appointment_complete(request: Request):
     """Mark an appointment as completed when notified"""
@@ -329,7 +361,13 @@ scheduler = AsyncIOScheduler()
 async def send_reminders():
     """Send reminders at the appropriate times"""
     from datetime import datetime, timedelta
-    
+
+    # Auto-cancel no-show appointments older than 24 hours
+    try:
+        cancel_old_no_shows()
+    except Exception as e:
+        print(f"Error cancelling old no-shows: {e}")
+
     try:
         appointments = get_upcoming_appointments(hours_ahead=24)
         now = datetime.now()

@@ -198,7 +198,7 @@ def get_appointments(phone=None, doctor_id=None, include_past=False):
                      FROM appointments a
                      JOIN doctors d ON a.doctor_id = d.id
                      JOIN hospitals h ON d.hospital_id = h.id
-                     WHERE a.phone = ? AND a.status IN ('booked', 'rescheduled')
+                     WHERE a.phone = ? AND a.status IN ('booked', 'rescheduled', 'no_show')
                      ORDER BY a.date DESC, a.time DESC''', (phone,))
     elif doctor_id:
         c.execute('''SELECT a.id, a.doctor_id, a.phone, a.date, a.time, a.status
@@ -232,6 +232,23 @@ def reschedule_appointment(appointment_id, new_date, new_time):
     c = conn.cursor()
     c.execute('UPDATE appointments SET date = ?, time = ?, status = "rescheduled" WHERE id = ?',
               (new_date, new_time, appointment_id))
+    conn.commit()
+    conn.close()
+
+def mark_no_show(appointment_id):
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute('UPDATE appointments SET status = "no_show" WHERE id = ?', (appointment_id,))
+    conn.commit()
+    conn.close()
+
+def cancel_old_no_shows():
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    cutoff = (datetime.now() - timedelta(hours=24)).strftime('%Y-%m-%d %H:%M')
+    c.execute("""UPDATE appointments SET status = 'cancelled'
+                 WHERE status = 'no_show'
+                 AND (date || ' ' || time) < ?""", (cutoff,))
     conn.commit()
     conn.close()
 
