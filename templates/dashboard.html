@@ -2052,13 +2052,6 @@
           }
         }
         
-        // ─ Update today's appointment count only ─
-        const statValues = document.querySelectorAll('.stat-value');
-        if(statValues.length > 0) {
-          const localToday = new Date().toLocaleDateString('en-CA');
-          const todayCount = appointments.filter(a => a.date === localToday && ['booked','rescheduled'].includes(a.status)).length;
-          if(statValues[0]) statValues[0].textContent = todayCount;
-        }
         
         // Update count
         lastApptCount = appointments.length;

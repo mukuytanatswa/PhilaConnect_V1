@@ -310,7 +310,7 @@ def get_patients():
                 ORDER BY a2.date DESC, a2.time DESC LIMIT 1) AS last_doctor
         FROM user_profiles up
         LEFT JOIN appointments a ON up.phone = a.phone
-            AND a.status IN ('booked', 'rescheduled', 'completed', 'no_show')
+            AND a.status = 'completed'
         GROUP BY up.phone
         ORDER BY last_visit DESC, up.created_at DESC
     ''')
