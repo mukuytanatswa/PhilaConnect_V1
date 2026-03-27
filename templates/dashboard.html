@@ -1027,7 +1027,7 @@
       <div class="stats-grid">
         <div class="stat-card">
           <div class="stat-label">Today's Appointments</div>
-          <div class="stat-value">{{ today_count }}</div>
+          <div class="stat-value" id="statToday">{{ today_count }}</div>
           <div class="stat-delta {% if today_count > yesterday_count %}delta-up{% endif %}" style="{% if today_count == yesterday_count %}color:var(--ink-muted){% endif %}">
             {% if today_count > yesterday_count %}▲ {{ today_count - yesterday_count }} from yesterday{% elif today_count < yesterday_count %}▼ {{ yesterday_count - today_count }} from yesterday{% else %}same as yesterday{% endif %}
           </div>
@@ -1041,13 +1041,13 @@
         </div>
         <div class="stat-card">
           <div class="stat-label">Upcoming Appointments</div>
-          <div class="stat-value">{{ upcoming_count }}</div>
+          <div class="stat-value" id="statUpcoming">{{ upcoming_count }}</div>
           <div class="stat-delta" style="color:var(--ink-muted);">from today onward</div>
           <div class="stat-accent">⏳</div>
         </div>
         <div class="stat-card">
           <div class="stat-label">Reminders Sent Today</div>
-          <div class="stat-value">{{ reminders_sent_today }}</div>
+          <div class="stat-value" id="statReminders">{{ reminders_sent_today }}</div>
           <div class="stat-delta" style="color:var(--ink-muted);">today</div>
           <div class="stat-accent">💬</div>
         </div>
@@ -1117,10 +1117,10 @@
     <div class="view" id="view-appointments">
       <div class="tabs">
         <button class="tab active" onclick="filterAppts('all', this)">All ({{ appointments|length }})</button>
-        <button class="tab" onclick="filterAppts('booked', this)">Booked ({{ booked_count }})</button>
-        <button class="tab" onclick="filterAppts('rescheduled', this)">Rescheduled ({{ rescheduled_count }})</button>
-        <button class="tab" onclick="filterAppts('no_show', this)">No Show ({{ no_show_count }})</button>
-        <button class="tab" onclick="filterAppts('cancelled', this)">Cancelled ({{ cancelled_count }})</button>
+        <button class="tab" onclick="filterAppts('booked', this)">Booked (<span id="tabBookedCount">{{ booked_count }}</span>)</button>
+        <button class="tab" onclick="filterAppts('rescheduled', this)">Rescheduled (<span id="tabRescheduledCount">{{ rescheduled_count }}</span>)</button>
+        <button class="tab" onclick="filterAppts('no_show', this)">No Show (<span id="tabNoShowCount">{{ no_show_count }}</span>)</button>
+        <button class="tab" onclick="filterAppts('cancelled', this)">Cancelled (<span id="tabCancelledCount">{{ cancelled_count }}</span>)</button>
       </div>
 
       <div class="panel">
@@ -1415,12 +1415,16 @@
           <div class="form-group"><label class="form-label">Phone (WhatsApp)</label><input class="form-input" name="phone" placeholder="+27 XX XXX XXXX" required></div>
         </div>
         <div class="form-row">
-          <div class="form-group"><label class="form-label">Date</label><input class="form-input" name="date" type="date" required></div>
-          <div class="form-group"><label class="form-label">Time</label><input class="form-input" name="time" type="time" required></div>
+          <div class="form-group"><label class="form-label">Date</label><input class="form-input" id="apptDate" name="date" type="date" required></div>
+          <div class="form-group"><label class="form-label">Time</label>
+            <select class="form-input" id="apptTime" name="time" required>
+              <option value="">Select doctor &amp; date first</option>
+            </select>
+          </div>
         </div>
         <div class="form-row">
           <div class="form-group"><label class="form-label">Doctor</label>
-            <select class="form-input" name="doctor_id" required>
+            <select class="form-input" id="apptDoctorId" name="doctor_id" required>
               {% for doc in doctors %}
               <option value="{{ doc[0] }}">{{ doc[1] }} — {{ doc[2] }}</option>
               {% endfor %}
@@ -1517,7 +1521,9 @@
           </div>
           <div class="form-group">
             <label class="form-label">New Time</label>
-            <input class="form-input" id="rescheduleTime" type="time" required>
+            <select class="form-input" id="rescheduleTime" required>
+              <option value="">Select a date first</option>
+            </select>
           </div>
         </div>
         <div class="form-group">
@@ -1637,7 +1643,53 @@
 
   // ── APPOINTMENT DETAIL ──
   let currentApptId = null;
+  let currentApptDoctorId = null;
   let allAppointmentsCache = {};  // Cache to store all appointment data
+
+  function formatTime(t) {
+    const [h, m] = t.split(':').map(Number);
+    const period = h < 12 ? 'AM' : 'PM';
+    const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+    return `${h12}:${m.toString().padStart(2,'0')} ${period}`;
+  }
+
+  async function loadTimes(doctorId, date, selectEl) {
+    selectEl.innerHTML = '<option value="">Loading...</option>';
+    if (!doctorId || !date) {
+      selectEl.innerHTML = '<option value="">Select doctor &amp; date first</option>';
+      return;
+    }
+    const res = await fetch(`/api/available-times?doctor_id=${doctorId}&date=${date}`);
+    const { times } = await res.json();
+    if (times.length === 0) {
+      selectEl.innerHTML = '<option value="">No times available</option>';
+    } else {
+      selectEl.innerHTML = '<option value="">Select a time</option>';
+      times.forEach(t => {
+        const opt = document.createElement('option');
+        opt.value = t;
+        opt.textContent = formatTime(t);
+        selectEl.appendChild(opt);
+      });
+    }
+  }
+
+  function refreshApptTimes() {
+    const doctorId = document.getElementById('apptDoctorId').value;
+    const date = document.getElementById('apptDate').value;
+    loadTimes(doctorId, date, document.getElementById('apptTime'));
+  }
+
+  function refreshRescheduleTimes() {
+    const date = document.getElementById('rescheduleDate').value;
+    loadTimes(currentApptDoctorId, date, document.getElementById('rescheduleTime'));
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('apptDoctorId').addEventListener('change', refreshApptTimes);
+    document.getElementById('apptDate').addEventListener('change', refreshApptTimes);
+    document.getElementById('rescheduleDate').addEventListener('change', refreshRescheduleTimes);
+  });
   
   function showAppointmentDetail(apptId, event) {
     if(event) event.preventDefault();
@@ -1689,10 +1741,23 @@
   
   function openRescheduleModal(apptId) {
     currentApptId = apptId;
+    currentApptDoctorId = null;
     closeModal('apptDetail');
     document.getElementById('rescheduleDate').value = '';
-    document.getElementById('rescheduleTime').value = '';
+    document.getElementById('rescheduleTime').innerHTML = '<option value="">Select a date first</option>';
     document.getElementById('rescheduleMessage').value = '';
+    // Resolve doctor_id from cache or fetch
+    const cached = allAppointmentsCache[apptId];
+    if (cached && cached.doctor_id) {
+      currentApptDoctorId = cached.doctor_id;
+    } else {
+      fetch(`/api/appointment/${apptId}`)
+        .then(r => r.json())
+        .then(data => {
+          allAppointmentsCache[apptId] = data;
+          currentApptDoctorId = data.doctor_id;
+        });
+    }
     openModal('rescheduleAppt');
   }
   
@@ -2054,6 +2119,34 @@
         }
         
         
+        // Update stat cards
+        if (data.today_count !== undefined) {
+          const el = document.getElementById('statToday');
+          if (el) el.textContent = data.today_count;
+        }
+        if (data.upcoming_count !== undefined) {
+          const el = document.getElementById('statUpcoming');
+          if (el) el.textContent = data.upcoming_count;
+        }
+        if (data.reminders_sent_today !== undefined) {
+          const el = document.getElementById('statReminders');
+          if (el) el.textContent = data.reminders_sent_today;
+        }
+
+        // Update tab filter counts
+        const bookedCount = appointments.filter(a => a.status === 'booked').length;
+        const rescheduledCount = appointments.filter(a => a.status === 'rescheduled').length;
+        const cancelledCount = appointments.filter(a => a.status === 'cancelled').length;
+        const noShowCount = appointments.filter(a => a.status === 'no_show').length;
+        const tabBookedCount = document.getElementById('tabBookedCount');
+        const tabRescheduledCount = document.getElementById('tabRescheduledCount');
+        const tabCancelledCount = document.getElementById('tabCancelledCount');
+        const tabNoShowCount = document.getElementById('tabNoShowCount');
+        if (tabBookedCount) tabBookedCount.textContent = bookedCount;
+        if (tabRescheduledCount) tabRescheduledCount.textContent = rescheduledCount;
+        if (tabCancelledCount) tabCancelledCount.textContent = cancelledCount;
+        if (tabNoShowCount) tabNoShowCount.textContent = noShowCount;
+
         // Update count
         lastApptCount = appointments.length;
       })

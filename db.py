@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 CLINIC_NAME = os.getenv("CLINIC_NAME", "PhilaConnect Clinic")
 
 # Database file — absolute path so it resolves correctly regardless of working directory
-DB_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'philaconnect.db')
+DB_FILE = os.getenv("DATABASE_PATH", os.path.join(os.path.dirname(os.path.abspath(__file__)), 'philaconnect.db'))
 
 def init_db():
     conn = sqlite3.connect(DB_FILE)
@@ -161,10 +161,22 @@ def get_available_dates(doctor_id, days_ahead=10):
     return dates
 
 def get_available_times(doctor_id, date):
-    # For now, 9am to 5pm every hour
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute(
+        "SELECT time FROM appointments WHERE doctor_id=? AND date=? AND status IN ('booked','rescheduled')",
+        (doctor_id, date)
+    )
+    booked = {row[0] for row in c.fetchall()}
+    conn.close()
     times = []
-    for hour in range(9, 18):
-        times.append(f'{hour:02d}:00')
+    for hour in range(9, 17):
+        for minute in ('00', '30'):
+            t = f'{hour:02d}:{minute}'
+            if t not in booked:
+                times.append(t)
+    if '17:00' not in booked:
+        times.append('17:00')
     return times
 
 def book_appointment(phone, doctor_id, date, time):

@@ -3,7 +3,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from logic import handle_message
-from db import get_appointments, toggle_doctor, get_doctors_all, get_hospitals, book_appointment, update_doctor_availability, cancel_appointment, reschedule_appointment, get_user_profile, set_user_profile, mark_appointment_completed, mark_no_show, cancel_old_no_shows, get_upcoming_appointments, mark_reminder_sent, get_today_count, get_yesterday_count, get_reminders_sent_today, get_upcoming_count, get_patients, DB_FILE
+from db import get_appointments, toggle_doctor, get_doctors_all, get_hospitals, book_appointment, update_doctor_availability, cancel_appointment, reschedule_appointment, get_user_profile, set_user_profile, mark_appointment_completed, mark_no_show, cancel_old_no_shows, get_upcoming_appointments, mark_reminder_sent, get_today_count, get_yesterday_count, get_reminders_sent_today, get_upcoming_count, get_patients, get_available_times, DB_FILE
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from starlette.middleware.base import BaseHTTPMiddleware
 from whatsapp import send_message
@@ -226,6 +226,11 @@ async def reschedule_appt(
     except Exception as e:
         return {"status": "error", "message": str(e)}, 400
 
+@app.get("/api/available-times")
+async def api_available_times(doctor_id: int, date: str):
+    times = get_available_times(doctor_id, date)
+    return {"times": times}
+
 @app.get("/api/appointment/{appointment_id}")
 async def get_appointment_detail(appointment_id: int):
     """Get appointment details as JSON"""
@@ -234,7 +239,7 @@ async def get_appointment_detail(appointment_id: int):
         c = conn.cursor()
         c.execute('''SELECT a.id, a.phone,
                             COALESCE(up.name, a.phone) AS patient_name,
-                            d.name, d.specialty, h.name, a.date, a.time, a.status
+                            d.name, d.specialty, h.name, a.date, a.time, a.status, a.doctor_id
                      FROM appointments a
                      JOIN doctors d ON a.doctor_id = d.id
                      JOIN hospitals h ON d.hospital_id = h.id
@@ -253,7 +258,8 @@ async def get_appointment_detail(appointment_id: int):
                 "hospital": row[5],
                 "date": row[6],
                 "time": row[7],
-                "status": row[8]
+                "status": row[8],
+                "doctor_id": row[9]
             }
         return {"error": "Appointment not found"}, 404
     except Exception as e:
@@ -278,7 +284,13 @@ async def get_appointments_data():
                 "status": appt[8],
                 "reminder_sent": appt[9]
             })
-        return {"appointments": result, "count": len(result)}
+        return {
+            "appointments": result,
+            "count": len(result),
+            "today_count": get_today_count(),
+            "upcoming_count": get_upcoming_count(),
+            "reminders_sent_today": get_reminders_sent_today(),
+        }
     except Exception as e:
         return {"error": str(e)}, 400
 
