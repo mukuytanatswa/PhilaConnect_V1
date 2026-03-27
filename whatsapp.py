@@ -1,8 +1,8 @@
 import requests
 import os
 
-TOKEN = os.getenv("WHATSAPP_TOKEN", "EAAcPr81TDkYBRKeyiKbusdTnaZAZAhrVxlOeWTCm5JDc8mpOPgCgXZBBsON2ZAtIMU7M9cWfdsbuFsxoqctWWYSWWXZAPVWzq2vCyaFT6ca9ZBCvcvdVwT8rZAZAJRLhJb7VWWVJLRHAqElOdCUg5hmSZAf2cG6CIEFdP18Mtnpw3gSJZBSd9VTgQ7P94cPBgjz8luSgZDZD")
-PHONE_ID = os.getenv("WHATSAPP_PHONE_ID", "1056110920899451")
+TOKEN = os.getenv("WHATSAPP_TOKEN")
+PHONE_ID = os.getenv("WHATSAPP_PHONE_ID")
 
 
 def send_list(phone, body_text, button_text, sections):

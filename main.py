@@ -15,6 +15,7 @@ app = FastAPI()
 
 # This is your verification token for Meta webhook
 VERIFY_TOKEN = os.getenv("VERIFY_TOKEN", "philaconnect_verify")
+CLINIC_NAME = os.getenv("CLINIC_NAME", "PhilaConnect Clinic")
 
 # Templates
 templates = Jinja2Templates(directory="templates")
@@ -108,7 +109,7 @@ async def add_appt(
     doctors = get_doctors_all()
     doctor_name = next((d[1] for d in doctors if d[0] == doctor_id), "Doctor")
     # Send confirmation message
-    send_message(phone, f"Hello {patient_name}, your appointment at The Riverside Cottage is confirmed for {date} at {time} with {doctor_name}.")
+    send_message(phone, f"Hello {patient_name}, your appointment at {CLINIC_NAME} is confirmed for {date} at {time} with {doctor_name}.")
     return RedirectResponse(url="/dashboard", status_code=303)
 
 @app.post("/add_doctor")

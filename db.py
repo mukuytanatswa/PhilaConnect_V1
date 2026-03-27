@@ -3,6 +3,8 @@ import json
 import os
 from datetime import datetime, timedelta
 
+CLINIC_NAME = os.getenv("CLINIC_NAME", "PhilaConnect Clinic")
+
 # Database file — absolute path so it resolves correctly regardless of working directory
 DB_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'philaconnect.db')
 
@@ -69,6 +71,8 @@ def init_db():
     appt_columns = [row[1] for row in c.fetchall()]
     if 'reminder_sent' not in appt_columns:
         c.execute("ALTER TABLE appointments ADD COLUMN reminder_sent INTEGER DEFAULT 0")
+    if 'no_show_at' not in appt_columns:
+        c.execute("ALTER TABLE appointments ADD COLUMN no_show_at TEXT")
 
     # Backfill any doctors missing available_days
     c.execute("UPDATE doctors SET available_days = 'Mon,Tue,Wed,Thu,Fri' WHERE available_days IS NULL OR available_days = ''")
@@ -77,16 +81,16 @@ def init_db():
     c.execute('SELECT COUNT(*) FROM hospitals')
     if c.fetchone()[0] == 0:
         hospitals = [
-            ('The Riverside Cottage',),
+            (CLINIC_NAME,),
         ]
         c.executemany('INSERT INTO hospitals (name) VALUES (?)', hospitals)
         conn.commit()
 
     # Ensure hospital exists
-    c.execute('SELECT id FROM hospitals WHERE name = "The Riverside Cottage"')
+    c.execute('SELECT id FROM hospitals WHERE name = ?', (CLINIC_NAME,))
     hosp_row = c.fetchone()
     if not hosp_row:
-        c.execute('INSERT INTO hospitals (name) VALUES (?)', ('The Riverside Cottage',))
+        c.execute('INSERT INTO hospitals (name) VALUES (?)', (CLINIC_NAME,))
         conn.commit()
         hospital_id = c.lastrowid
     else:
@@ -238,7 +242,7 @@ def reschedule_appointment(appointment_id, new_date, new_time):
 def mark_no_show(appointment_id):
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
-    c.execute('UPDATE appointments SET status = "no_show" WHERE id = ?', (appointment_id,))
+    c.execute('UPDATE appointments SET status = "no_show", no_show_at = CURRENT_TIMESTAMP WHERE id = ?', (appointment_id,))
     conn.commit()
     conn.close()
 
@@ -248,7 +252,8 @@ def cancel_old_no_shows():
     cutoff = (datetime.now() - timedelta(hours=24)).strftime('%Y-%m-%d %H:%M')
     c.execute("""UPDATE appointments SET status = 'cancelled'
                  WHERE status = 'no_show'
-                 AND (date || ' ' || time) < ?""", (cutoff,))
+                 AND no_show_at IS NOT NULL
+                 AND no_show_at < ?""", (cutoff,))
     conn.commit()
     conn.close()
 

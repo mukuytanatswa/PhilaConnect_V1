@@ -1713,6 +1713,7 @@
   
   // ── APPOINTMENT FILTER ──
   function filterAppts(status, el) {
+    activeStatusFilter = status;
     document.querySelectorAll('#view-appointments .tab').forEach(t => t.classList.remove('active'));
     if(el) el.classList.add('active');
     const rows = document.querySelectorAll('#apptTableBody tr');
@@ -1852,6 +1853,7 @@
   // ── AUTO-REFRESH APPOINTMENTS IN BACKGROUND (SEAMLESS) ──
   let autoRefreshEnabled = true;
   let lastApptCount = 0;
+  let activeStatusFilter = 'all';
   
   function markPresent(id) {
     fetch('/api/appointment/complete', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({appointment_id: id})})
@@ -1952,6 +1954,14 @@
 
           if(apptsTable.innerHTML !== tableHtml) {
             apptsTable.innerHTML = tableHtml;
+            // Re-apply active filters so doctor/status selections persist across refreshes
+            const doctorSel = document.getElementById('doctorFilter');
+            const doctorId = doctorSel ? doctorSel.value : '';
+            document.querySelectorAll('#apptTableBody tr').forEach(row => {
+              const matchDoctor = !doctorId || row.dataset.doctorId === doctorId;
+              const matchStatus = activeStatusFilter === 'all' || row.dataset.status === activeStatusFilter;
+              row.style.display = (matchDoctor && matchStatus) ? '' : 'none';
+            });
           }
         }
         
