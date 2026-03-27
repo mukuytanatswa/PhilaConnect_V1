@@ -5,19 +5,38 @@ from fastapi.templating import Jinja2Templates
 from logic import handle_message
 from db import get_appointments, toggle_doctor, get_doctors_all, get_hospitals, book_appointment, update_doctor_availability, cancel_appointment, reschedule_appointment, get_user_profile, mark_appointment_completed, mark_no_show, cancel_old_no_shows, get_upcoming_appointments, mark_reminder_sent, get_today_count, get_yesterday_count, get_reminders_sent_today, get_upcoming_count, get_patients, DB_FILE
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from starlette.middleware.base import BaseHTTPMiddleware
 from whatsapp import send_message
 import asyncio
+import hashlib
 import sqlite3
 import json
 import os
 
 app = FastAPI()
 
+class AuthMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        public = ("/login", "/webhook")
+        if any(request.url.path.startswith(p) for p in public):
+            return await call_next(request)
+        if request.cookies.get("session") != _session_token():
+            return RedirectResponse("/login")
+        return await call_next(request)
+
+app.add_middleware(AuthMiddleware)
+
 # This is your verification token for Meta webhook
 VERIFY_TOKEN = os.getenv("VERIFY_TOKEN", "philaconnect_verify")
 CLINIC_NAME = os.getenv("CLINIC_NAME", "PhilaConnect Clinic")
 TIER = os.getenv("TIER", "solo")
 TIER_LIMITS = {"solo": 1, "practice": 5, "enterprise": None}
+DASHBOARD_USER = os.getenv("DASHBOARD_USER", "admin")
+DASHBOARD_PASS = os.getenv("DASHBOARD_PASS", "admin")
+DASHBOARD_SECRET = os.getenv("DASHBOARD_SECRET", "changeme")
+
+def _session_token():
+    return hashlib.sha256(f"{DASHBOARD_USER}:{DASHBOARD_PASS}:{DASHBOARD_SECRET}".encode()).hexdigest()
 
 # Templates
 templates = Jinja2Templates(directory="templates")
@@ -39,6 +58,25 @@ async def webhook(request: Request):
     data = await request.json()
     handle_message(data)
     return {"status": "ok"}
+
+# Login / Logout
+@app.get("/login", response_class=HTMLResponse)
+async def login_page(request: Request):
+    return templates.TemplateResponse(request, "login.html", {})
+
+@app.post("/login")
+async def login(username: str = Form(...), password: str = Form(...)):
+    if username == DASHBOARD_USER and password == DASHBOARD_PASS:
+        resp = RedirectResponse(url="/dashboard", status_code=303)
+        resp.set_cookie("session", _session_token(), httponly=True, samesite="lax")
+        return resp
+    return RedirectResponse(url="/login?error=1", status_code=303)
+
+@app.get("/logout")
+async def logout():
+    resp = RedirectResponse(url="/login", status_code=303)
+    resp.delete_cookie("session")
+    return resp
 
 # Dashboard
 @app.get("/dashboard", response_class=HTMLResponse)
