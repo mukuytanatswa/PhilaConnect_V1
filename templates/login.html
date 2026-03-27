@@ -105,7 +105,10 @@
       <label for="username">Username</label>
       <input type="text" id="username" name="username" autocomplete="username" autofocus required>
       <label for="password">Password</label>
-      <input type="password" id="password" name="password" autocomplete="current-password" required>
+      <div style="position:relative;">
+        <input type="password" id="password" name="password" autocomplete="current-password" required style="margin-bottom:18px;padding-right:42px;">
+        <span onclick="const i=document.getElementById('password');i.type=i.type==='password'?'text':'password';this.textContent=i.type==='password'?'👁':'🙈';" style="position:absolute;right:12px;top:10px;cursor:pointer;font-size:16px;user-select:none;">👁</span>
+      </div>
       <button type="submit">Sign In</button>
     </form>
   </div>
