@@ -96,16 +96,6 @@ def init_db():
     else:
         hospital_id = hosp_row[0]
 
-    # Insert doctors if they don't exist
-    c.execute('SELECT COUNT(*) FROM doctors')
-    if c.fetchone()[0] == 0:
-        doctors = [
-            ('Dr. Kotzé-Scott', 'General Practice', hospital_id, 'Mon,Tue,Wed,Thu,Fri,Sat,Sun'),
-            ('Dr. Awe', 'General Practice', hospital_id, 'Mon,Tue,Wed,Thu,Fri,Sat,Sun'),
-            ('Dr. Blumenthal', 'General Practice', hospital_id, 'Mon,Tue,Wed,Thu,Fri,Sat,Sun')
-        ]
-        c.executemany('INSERT INTO doctors (name, specialty, hospital_id, available_days) VALUES (?, ?, ?, ?)', doctors)
-        conn.commit()
 
     # Fix any existing doctor rows with hospital_id 0 to the default clinic ID
     c.execute('UPDATE doctors SET hospital_id = ? WHERE hospital_id = 0', (hospital_id,))

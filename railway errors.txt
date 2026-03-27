@@ -1,0 +1,118 @@
+You reached the start of the range
+Mar 26, 2026, 8:13 PM
+Starting Container
+INFO:     Started server process [1]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:     100.64.0.5:55832 - "POST /webhook HTTP/1.1" 200 OK
+Reminder scheduler started
+Processing message from 27746459920: hi
+INFO:     100.64.0.2:47120 - "POST /webhook HTTP/1.1" 200 OK
+No messages in payload
+INFO:     100.64.0.3:16010 - "POST /webhook HTTP/1.1" 200 OK
+No messages in payload
+INFO:     100.64.0.4:42292 - "POST /webhook HTTP/1.1" 200 OK
+Processing message from 27746459920: 1
+INFO:     100.64.0.4:42292 - "POST /webhook HTTP/1.1" 200 OK
+No messages in payload
+No messages in payload
+INFO:     100.64.0.6:46478 - "POST /webhook HTTP/1.1" 200 OK
+Processing message from 27746459920: 1
+INFO:     100.64.0.7:20564 - "POST /webhook HTTP/1.1" 200 OK
+No messages in payload
+INFO:     100.64.0.8:34022 - "POST /webhook HTTP/1.1" 200 OK
+No messages in payload
+INFO:     100.64.0.9:37214 - "POST /webhook HTTP/1.1" 200 OK
+Processing message from 27746459920: 2
+WhatsApp List API error 400: {"error":{"message":"(#131009) Parameter value is not valid","type":"OAuthException","code":131009,"error_data":{"messaging_product":"whatsapp","details":"Total row count exceed max allowed count: 10"},"fbtrace_id":"A_nwktTdYuJx36O9qa_AuRv"}}
+INFO:     100.64.0.2:51852 - "POST /webhook HTTP/1.1" 200 OK
+No messages in payload
+INFO:     100.64.0.10:37438 - "POST /webhook HTTP/1.1" 200 OK
+No messages in payload
+INFO:     100.64.0.11:32122 - "POST /webhook HTTP/1.1" 200 OK
+Processing message from 27746459920: 4
+INFO:     100.64.0.12:43544 - "POST /webhook HTTP/1.1" 200 OK
+No messages in payload
+INFO:     100.64.0.3:50780 - "POST /webhook HTTP/1.1" 200 OK
+No messages in payload
+INFO:     100.64.0.12:43544 - "POST /webhook HTTP/1.1" 200 OK
+Processing message from 27746459920: time_15:00
+[select_time] resolved_time=15:00, available=['09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00']
+[select_time] booked appointment_id=1 for 27746459920
+INFO:     100.64.0.10:37452 - "POST /webhook HTTP/1.1" 200 OK
+No messages in payload
+INFO:     100.64.0.13:39344 - "POST /webhook HTTP/1.1" 200 OK
+No messages in payload
+INFO:     100.64.0.4:34052 - "POST /webhook HTTP/1.1" 200 OK
+INFO:     100.64.0.14:49914 - "GET / HTTP/1.1" 404 Not Found
+Traceback (most recent call last):
+  File "/app/main.py", line 60, in dashboard
+    return templates.TemplateResponse("dashboard.html", {
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/starlette/templating.py", line 148, in TemplateResponse
+    template = self.get_template(name)
+               ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/starlette/templating.py", line 115, in get_template
+    return self.env.get_template(name)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/jinja2/environment.py", line 1016, in get_template
+    return self._load_template(name, globals)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/jinja2/environment.py", line 964, in _load_template
+    template = self.cache.get(cache_key)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/jinja2/utils.py", line 477, in get
+    return self[key]
+           ~~~~^^^^^
+  File "/usr/local/lib/python3.11/site-packages/jinja2/utils.py", line 515, in __getitem__
+    rv = self._mapping[key]
+  File "/usr/local/lib/python3.11/site-packages/starlette/templating.py", line 115, in get_template
+    return self.env.get_template(name)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/jinja2/environment.py", line 1016, in get_template
+    return self._load_template(name, globals)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/jinja2/environment.py", line 964, in _load_template
+    template = self.cache.get(cache_key)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/jinja2/utils.py", line 477, in get
+         ~~~~~~~~~~~~~^^^^^
+TypeError: unhashable type: 'dict'
+Error loading dashboard: unhashable type: 'dict'
+INFO:     100.64.0.15:12830 - "GET /dashboard HTTP/1.1" 500 Internal Server Error
+Traceback (most recent call last):
+  File "/app/main.py", line 60, in dashboard
+    return templates.TemplateResponse("dashboard.html", {
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/starlette/templating.py", line 148, in TemplateResponse
+    template = self.get_template(name)
+               ^^^^^^^^^^^^^^^^^^^^^^^
+    return self[key]
+           ~~~~^^^^^
+  File "/usr/local/lib/python3.11/site-packages/jinja2/utils.py", line 515, in __getitem__
+    rv = self._mapping[key]
+         ~~~~~~~~~~~~~^^^^^
+TypeError: unhashable type: 'dict'
+Error loading dashboard: unhashable type: 'dict'
+INFO:     100.64.0.14:54414 - "GET /dashboard HTTP/1.1" 500 Internal Server Error
+INFO:     100.64.0.16:19194 - "GET / HTTP/1.1" 404 Not Found
+Processing message from 27746459920: hi
+INFO:     100.64.0.7:33302 - "POST /webhook HTTP/1.1" 200 OK
+No messages in payload
+INFO:     100.64.0.11:44366 - "POST /webhook HTTP/1.1" 200 OK
+No messages in payload
+INFO:     100.64.0.10:10300 - "POST /webhook HTTP/1.1" 200 OK
+Processing message from 27746459920: 1
+INFO:     100.64.0.17:44280 - "POST /webhook HTTP/1.1" 200 OK
+No messages in payload
+INFO:     100.64.0.4:12392 - "POST /webhook HTTP/1.1" 200 OK
+No messages in payload
+INFO:     100.64.0.4:12392 - "POST /webhook HTTP/1.1" 200 OK
+Processing message from 27746459920: 1
+INFO:     100.64.0.18:18292 - "POST /webhook HTTP/1.1" 200 OK
+No messages in payload
+INFO:     100.64.0.13:46382 - "POST /webhook HTTP/1.1" 200 OK
+No messages in payload
+INFO:     100.64.0.7:23330 - "POST /webhook HTTP/1.1" 200 OK
+Processing message from 27746459920: 2

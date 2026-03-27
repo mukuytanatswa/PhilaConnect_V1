@@ -1,0 +1,15 @@
+Processing message from 27746459920: hi
+WhatsApp API error 400: {"error":{"message":"Unsupported post request. Object with ID 'None' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https:\/\/developers.facebook.com\/docs\/graph-api","type":"GraphMethodException","code":100,"error_subcode":33,"fbtrace_id":"Axfx0FcS67ffMrG7nvriOWy"}}
+
+ - Double-booking: two patients can book the same doctor at the same time. No slot conflict check exists. Fine for now if clinic staff are watching the      
+ dashboard.
+ - WhatsApp token expiry: Meta temporary tokens expire in ~60 days. Set up a permanent system token in Meta Business Manager before going live or the bot    
+ will silently stop working.
+ - Sample doctors: the DB seeds with Kotzé-Scott, Awe, Blumenthal. Clinics need to delete these and add their own via the dashboard.
+ - No appointment search: only filter by doctor/status. Fine at low volume.
+
+                                                                                                                                                             
+  2. Data disappears on every Railway redeploy — SQLite lives on Railway's temporary disk. Each time you push new code and Railway rebuilds, the entire      
+  database is wiped — all appointments, all patients, gone. The fix is a Railway persistent volume (free on their plans), which keeps the database file
+  across deploys. This requires no code change, just a Railway config step and
+   one env var.

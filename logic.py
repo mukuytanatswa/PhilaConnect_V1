@@ -284,7 +284,7 @@ def handle_message(data):
     
     elif state == "update_name":
         # Store the name in database
-        name = text.strip()
+        name = text.strip().title()
         set_user_profile(phone, name)
         set_state(phone, None, {})
         send_message(phone, f"Name updated to: {name}\n\nReply 'menu' for the main menu.")
@@ -299,7 +299,7 @@ def handle_message(data):
             send_message(phone, "Invalid format. Use +27XXXXXXXXX and try again.")
 
     elif state == 'new_user_name':
-        name = text.strip()
+        name = text.strip().title()
         if len(name) < 2:
             send_message(phone, "Please enter your full name:")
             return

@@ -3,7 +3,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from logic import handle_message
-from db import get_appointments, toggle_doctor, get_doctors_all, get_hospitals, book_appointment, update_doctor_availability, cancel_appointment, reschedule_appointment, get_user_profile, mark_appointment_completed, mark_no_show, cancel_old_no_shows, get_upcoming_appointments, mark_reminder_sent, get_today_count, get_yesterday_count, get_reminders_sent_today, get_upcoming_count, get_patients, DB_FILE
+from db import get_appointments, toggle_doctor, get_doctors_all, get_hospitals, book_appointment, update_doctor_availability, cancel_appointment, reschedule_appointment, get_user_profile, set_user_profile, mark_appointment_completed, mark_no_show, cancel_old_no_shows, get_upcoming_appointments, mark_reminder_sent, get_today_count, get_yesterday_count, get_reminders_sent_today, get_upcoming_count, get_patients, DB_FILE
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from starlette.middleware.base import BaseHTTPMiddleware
 from whatsapp import send_message
@@ -147,7 +147,9 @@ async def add_appt(
     type: str = Form("General Consultation"),
     notes: str = Form("")
 ):
+    patient_name = patient_name.strip().title()
     appointment_id = book_appointment(phone, doctor_id, date, time)
+    set_user_profile(phone, patient_name)
     # Get doctor name
     doctors = get_doctors_all()
     doctor_name = next((d[1] for d in doctors if d[0] == doctor_id), "Doctor")
@@ -164,7 +166,7 @@ async def add_doc(
     limit = TIER_LIMITS.get(TIER)
     if limit is not None and len(get_doctors_all()) >= limit:
         return RedirectResponse(url="/dashboard?error=doctor_limit", status_code=303)
-    name = f"Dr. {first_name} {surname}"
+    name = f"Dr. {first_name.strip().title()} {surname.strip().title()}"
     hospital_id = get_hospitals()[0][0]  # Assume first hospital
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
