@@ -1416,11 +1416,7 @@
         </div>
         <div class="form-row">
           <div class="form-group"><label class="form-label">Date</label><input class="form-input" id="apptDate" name="date" type="date" required></div>
-          <div class="form-group"><label class="form-label">Time</label>
-            <select class="form-input" id="apptTime" name="time" required>
-              <option value="">Select doctor &amp; date first</option>
-            </select>
-          </div>
+          <div class="form-group"><label class="form-label">Time</label><input class="form-input" name="time" type="time" step="1800" required></div>
         </div>
         <div class="form-row">
           <div class="form-group"><label class="form-label">Doctor</label>
@@ -1521,9 +1517,7 @@
           </div>
           <div class="form-group">
             <label class="form-label">New Time</label>
-            <select class="form-input" id="rescheduleTime" required>
-              <option value="">Select a date first</option>
-            </select>
+            <input class="form-input" id="rescheduleTime" type="time" step="1800" required>
           </div>
         </div>
         <div class="form-group">
@@ -1643,53 +1637,7 @@
 
   // ── APPOINTMENT DETAIL ──
   let currentApptId = null;
-  let currentApptDoctorId = null;
   let allAppointmentsCache = {};  // Cache to store all appointment data
-
-  function formatTime(t) {
-    const [h, m] = t.split(':').map(Number);
-    const period = h < 12 ? 'AM' : 'PM';
-    const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
-    return `${h12}:${m.toString().padStart(2,'0')} ${period}`;
-  }
-
-  async function loadTimes(doctorId, date, selectEl) {
-    selectEl.innerHTML = '<option value="">Loading...</option>';
-    if (!doctorId || !date) {
-      selectEl.innerHTML = '<option value="">Select doctor &amp; date first</option>';
-      return;
-    }
-    const res = await fetch(`/api/available-times?doctor_id=${doctorId}&date=${date}`);
-    const { times } = await res.json();
-    if (times.length === 0) {
-      selectEl.innerHTML = '<option value="">No times available</option>';
-    } else {
-      selectEl.innerHTML = '<option value="">Select a time</option>';
-      times.forEach(t => {
-        const opt = document.createElement('option');
-        opt.value = t;
-        opt.textContent = formatTime(t);
-        selectEl.appendChild(opt);
-      });
-    }
-  }
-
-  function refreshApptTimes() {
-    const doctorId = document.getElementById('apptDoctorId').value;
-    const date = document.getElementById('apptDate').value;
-    loadTimes(doctorId, date, document.getElementById('apptTime'));
-  }
-
-  function refreshRescheduleTimes() {
-    const date = document.getElementById('rescheduleDate').value;
-    loadTimes(currentApptDoctorId, date, document.getElementById('rescheduleTime'));
-  }
-
-  document.addEventListener('DOMContentLoaded', () => {
-    document.getElementById('apptDoctorId').addEventListener('change', refreshApptTimes);
-    document.getElementById('apptDate').addEventListener('change', refreshApptTimes);
-    document.getElementById('rescheduleDate').addEventListener('change', refreshRescheduleTimes);
-  });
   
   function showAppointmentDetail(apptId, event) {
     if(event) event.preventDefault();
@@ -1741,23 +1689,10 @@
   
   function openRescheduleModal(apptId) {
     currentApptId = apptId;
-    currentApptDoctorId = null;
     closeModal('apptDetail');
     document.getElementById('rescheduleDate').value = '';
-    document.getElementById('rescheduleTime').innerHTML = '<option value="">Select a date first</option>';
+    document.getElementById('rescheduleTime').value = '';
     document.getElementById('rescheduleMessage').value = '';
-    // Resolve doctor_id from cache or fetch
-    const cached = allAppointmentsCache[apptId];
-    if (cached && cached.doctor_id) {
-      currentApptDoctorId = cached.doctor_id;
-    } else {
-      fetch(`/api/appointment/${apptId}`)
-        .then(r => r.json())
-        .then(data => {
-          allAppointmentsCache[apptId] = data;
-          currentApptDoctorId = data.doctor_id;
-        });
-    }
     openModal('rescheduleAppt');
   }
   
