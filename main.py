@@ -16,6 +16,8 @@ app = FastAPI()
 # This is your verification token for Meta webhook
 VERIFY_TOKEN = os.getenv("VERIFY_TOKEN", "philaconnect_verify")
 CLINIC_NAME = os.getenv("CLINIC_NAME", "PhilaConnect Clinic")
+TIER = os.getenv("TIER", "solo")
+TIER_LIMITS = {"solo": 1, "practice": 5, "enterprise": None}
 
 # Templates
 templates = Jinja2Templates(directory="templates")
@@ -118,6 +120,9 @@ async def add_doc(
     surname: str = Form(...),
     specialty: str = Form("General Practice")
 ):
+    limit = TIER_LIMITS.get(TIER)
+    if limit is not None and len(get_doctors_all()) >= limit:
+        return RedirectResponse(url="/dashboard?error=doctor_limit", status_code=303)
     name = f"Dr. {first_name} {surname}"
     hospital_id = get_hospitals()[0][0]  # Assume first hospital
     conn = sqlite3.connect(DB_FILE)

@@ -1983,9 +1983,15 @@
   
   // Auto-refresh every 2 seconds for near-instant updates
   setInterval(autoRefreshDashboard, 2000);
-  
+
   // Initial refresh to populate cache and display
   autoRefreshDashboard();
+
+  // Show tier limit error if redirected back with error param
+  if (new URLSearchParams(window.location.search).get('error') === 'doctor_limit') {
+    alert('Doctor limit reached for your current plan. Contact PhilaConnect to upgrade.');
+    history.replaceState(null, '', '/dashboard');
+  }
 </script>
 </body>
 </html>
