@@ -296,6 +296,28 @@ def get_doctors_all():
     conn.close()
     return doctors
 
+def get_patients():
+    """Get all patients with visit stats for the dashboard patients tab"""
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute('''
+        SELECT up.phone, up.name, up.created_at,
+               COUNT(a.id) AS visit_count,
+               MAX(a.date) AS last_visit,
+               (SELECT d.name FROM appointments a2
+                JOIN doctors d ON a2.doctor_id = d.id
+                WHERE a2.phone = up.phone
+                ORDER BY a2.date DESC, a2.time DESC LIMIT 1) AS last_doctor
+        FROM user_profiles up
+        LEFT JOIN appointments a ON up.phone = a.phone
+            AND a.status IN ('booked', 'rescheduled', 'completed', 'no_show')
+        GROUP BY up.phone
+        ORDER BY last_visit DESC, up.created_at DESC
+    ''')
+    patients = c.fetchall()
+    conn.close()
+    return patients
+
 def get_upcoming_appointments(hours_ahead=48):
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()

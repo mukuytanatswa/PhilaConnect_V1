@@ -3,7 +3,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from logic import handle_message
-from db import get_appointments, toggle_doctor, get_doctors_all, get_hospitals, book_appointment, update_doctor_availability, cancel_appointment, reschedule_appointment, get_user_profile, mark_appointment_completed, mark_no_show, cancel_old_no_shows, get_upcoming_appointments, mark_reminder_sent, get_today_count, get_yesterday_count, get_reminders_sent_today, get_upcoming_count, DB_FILE
+from db import get_appointments, toggle_doctor, get_doctors_all, get_hospitals, book_appointment, update_doctor_availability, cancel_appointment, reschedule_appointment, get_user_profile, mark_appointment_completed, mark_no_show, cancel_old_no_shows, get_upcoming_appointments, mark_reminder_sent, get_today_count, get_yesterday_count, get_reminders_sent_today, get_upcoming_count, get_patients, DB_FILE
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from whatsapp import send_message
 import asyncio
@@ -61,6 +61,7 @@ async def dashboard(request: Request):
         rescheduled_count = sum(1 for a in appointments if a[8] == 'rescheduled')
         cancelled_count = sum(1 for a in appointments if a[8] == 'cancelled')
         no_show_count = sum(1 for a in appointments if a[8] == 'no_show')
+        patients = get_patients()
         return templates.TemplateResponse(request, "dashboard.html", {
             "appointments": appointments,
             "doctors": doctors,
@@ -75,6 +76,8 @@ async def dashboard(request: Request):
             "rescheduled_count": rescheduled_count,
             "cancelled_count": cancelled_count,
             "no_show_count": no_show_count,
+            "patients": patients,
+            "patients_count": len(patients),
         })
     except Exception as e:
         # Log the error and return a simple error page

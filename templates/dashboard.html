@@ -990,6 +990,9 @@
     <div class="nav-item" onclick="showView('doctors', this)">
       <span class="icon">👩‍⚕️</span> Doctors
     </div>
+    <div class="nav-item" onclick="showView('patients', this)">
+      <span class="icon">👤</span> Patients
+    </div>
     <div class="nav-item" onclick="showView('notifications', this)">
       <span class="icon">💬</span> Reminders
     </div>
@@ -1201,6 +1204,46 @@
           <label class="toggle" style="transform:scale(1.2);"><input type="checkbox" {{ 'checked' if doc[4] else '' }} onchange="toggleDoc(this, '{{ doc[0] }}')"><span class="toggle-track"></span></label>
         </div>
         {% endfor %}
+      </div>
+    </div>
+
+    <!-- ══ PATIENTS VIEW ══ -->
+    <div class="view" id="view-patients">
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title">Patient Records — <span id="patientCountLabel">{{ patients_count }} total</span></div>
+          <input type="text" id="patientSearch" class="form-input" placeholder="Search by name or phone…" oninput="filterPatients()" style="width:220px;padding:6px 12px;font-size:12.5px;">
+        </div>
+        <div class="panel-body" style="padding:0 22px;">
+          <table class="appt-table">
+            <thead>
+              <tr><th>Name</th><th>Phone</th><th>Total Visits</th><th>Last Visit</th><th>Last Doctor</th></tr>
+            </thead>
+            <tbody id="patientTableBody">
+              {% for p in patients %}
+              <tr data-name="{{ (p[1] or p[0])|lower }}" data-phone="{{ p[0] }}">
+                <td><div style="display:flex;align-items:center;gap:9px;">
+                  <div style="width:30px;height:30px;border-radius:50%;background:var(--sage-light);color:var(--sage);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;">
+                    {{ (p[1] or p[0])[:2]|upper }}
+                  </div>
+                  <span>{{ p[1] or 'Unknown' }}</span>
+                </div></td>
+                <td style="color:var(--ink-muted);font-size:12.5px;">{{ p[0] }}</td>
+                <td style="text-align:center;"><strong>{{ p[3] or 0 }}</strong></td>
+                <td style="font-size:12.5px;">{{ p[4] or '—' }}</td>
+                <td style="font-size:12.5px;color:var(--ink-muted);">{{ p[5] or '—' }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          <div id="patientPagination" style="display:flex;align-items:center;justify-content:space-between;padding:14px 0;font-size:12.5px;color:var(--ink-muted);">
+            <span id="patientPageInfo"></span>
+            <div style="display:flex;gap:8px;">
+              <button class="topbar-btn" id="patientPrevBtn" onclick="changePatientPage(-1)" style="padding:6px 14px;font-size:12px;">← Prev</button>
+              <button class="topbar-btn" id="patientNextBtn" onclick="changePatientPage(1)" style="padding:6px 14px;font-size:12px;">Next →</button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -1545,9 +1588,10 @@
     document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
     if(navEl) navEl.classList.add('active');
 
-    const titles = {dashboard:'Today\'s Overview',appointments:'Appointments',doctors:'Doctor Management',notifications:'Reminder Settings'};
+    const titles = {dashboard:'Today\'s Overview',appointments:'Appointments',doctors:'Doctor Management',patients:'Patient Records',notifications:'Reminder Settings'};
     document.getElementById('pageTitle').textContent = titles[name]||name;
     if(name==='appointments') filterAppts('all', document.querySelector('#view-appointments .tab.active'));
+  if(name==='patients') renderPatientPage();
   }
 
   // ── MODALS ──
@@ -1734,6 +1778,49 @@
       }
     });
   }
+
+  // ── PATIENTS PAGINATION & SEARCH ──
+  let patientPage = 0;
+  const PATIENTS_PER_PAGE = 25;
+
+  function getVisiblePatientRows() {
+    return Array.from(document.querySelectorAll('#patientTableBody tr')).filter(r => r.style.display !== 'none');
+  }
+
+  function renderPatientPage() {
+    const rows = Array.from(document.querySelectorAll('#patientTableBody tr'));
+    const search = (document.getElementById('patientSearch')?.value || '').toLowerCase();
+    let visible = 0;
+    rows.forEach(row => {
+      const matchSearch = !search || row.dataset.name.includes(search) || row.dataset.phone.includes(search);
+      row.style.display = matchSearch ? '' : 'none';
+      if (matchSearch) visible++;
+    });
+    const filtered = rows.filter(r => r.style.display !== 'none');
+    const totalPages = Math.ceil(filtered.length / PATIENTS_PER_PAGE);
+    if (patientPage >= totalPages) patientPage = Math.max(0, totalPages - 1);
+    filtered.forEach((row, i) => {
+      row.style.display = (i >= patientPage * PATIENTS_PER_PAGE && i < (patientPage + 1) * PATIENTS_PER_PAGE) ? '' : 'none';
+    });
+    const start = filtered.length ? patientPage * PATIENTS_PER_PAGE + 1 : 0;
+    const end = Math.min((patientPage + 1) * PATIENTS_PER_PAGE, filtered.length);
+    document.getElementById('patientPageInfo').textContent = filtered.length ? `Showing ${start}–${end} of ${filtered.length}` : 'No patients found';
+    document.getElementById('patientPrevBtn').disabled = patientPage === 0;
+    document.getElementById('patientNextBtn').disabled = patientPage >= totalPages - 1;
+  }
+
+  function filterPatients() {
+    patientPage = 0;
+    renderPatientPage();
+  }
+
+  function changePatientPage(dir) {
+    patientPage += dir;
+    renderPatientPage();
+  }
+
+  // Init pagination when patients view is opened
+  const _origShowView = typeof showView === 'function' ? showView : null;
 
   // ── NOTIFICATION SYSTEM ──
   let notifiedAppointments = new Set();
