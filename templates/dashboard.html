@@ -967,7 +967,8 @@
   .booking-toast {
     position: fixed; bottom: 24px; right: 24px;
     background: var(--forest); color: white;
-    padding: 14px 20px; border-radius: 10px;
+    padding: 16px 20px; border-radius: 10px;
+    min-width: 220px;
     font-size: 14px; font-weight: 500;
     box-shadow: 0 4px 16px rgba(0,0,0,0.25); z-index: 9999;
     animation: toastIn 0.3s ease;
@@ -1789,7 +1790,7 @@
   }
 
   // ── BOOKING ALERT ──
-  function showNewBookingAlert(count) {
+  function showNewBookingAlert(newAppts) {
     try {
       const ctx = new AudioContext();
       [880, 1100].forEach((freq, i) => {
@@ -1803,11 +1804,21 @@
         osc.stop(ctx.currentTime + i * 0.18 + 0.4);
       });
     } catch(e) {}
+    const first = newAppts[0];
+    const extras = newAppts.length - 1;
+    const d = new Date(first.date + 'T00:00:00');
+    const dateStr = d.toLocaleDateString('en-ZA', { weekday:'short', day:'numeric', month:'short' });
     const t = document.createElement('div');
     t.className = 'booking-toast';
-    t.textContent = `New booking! ${count} new appointment${count > 1 ? 's' : ''} received.`;
+    t.innerHTML = `
+      <div style="font-size:11px;opacity:0.75;margin-bottom:5px;letter-spacing:0.8px;text-transform:uppercase;">New Booking</div>
+      <div style="font-weight:700;font-size:15px;margin-bottom:2px;">${first.patient_name || first.phone}</div>
+      <div style="font-size:13px;opacity:0.9;">${first.doctor_name}</div>
+      <div style="font-size:12px;opacity:0.75;margin-top:5px;">${dateStr}&nbsp;&nbsp;·&nbsp;&nbsp;${fmtTime(first.time)}</div>
+      ${extras > 0 ? `<div style="font-size:11px;opacity:0.6;margin-top:6px;">+${extras} more booking${extras > 1 ? 's' : ''}</div>` : ''}
+    `;
     document.body.appendChild(t);
-    setTimeout(() => t.remove(), 4000);
+    setTimeout(() => t.remove(), 6000);
   }
 
   // ── DOCTOR SCHEDULE ──
@@ -2221,6 +2232,7 @@
   // ── AUTO-REFRESH APPOINTMENTS IN BACKGROUND (SEAMLESS) ──
   let autoRefreshEnabled = true;
   let lastApptCount = 0;
+  let lastApptIds = new Set();
   let activeStatusFilter = 'all';
   
   function markPresent(id) {
@@ -2357,10 +2369,12 @@
         if (tabCancelledCount) tabCancelledCount.textContent = cancelledCount;
         if (tabNoShowCount) tabNoShowCount.textContent = noShowCount;
 
-        // Booking alert
-        if (lastApptCount > 0 && appointments.length > lastApptCount) {
-          showNewBookingAlert(appointments.length - lastApptCount);
+        // Booking alert — find newly added appointments by ID
+        if (lastApptIds.size > 0) {
+          const newAppts = appointments.filter(a => !lastApptIds.has(a.id));
+          if (newAppts.length > 0) showNewBookingAlert(newAppts);
         }
+        lastApptIds = new Set(appointments.map(a => a.id));
         lastApptCount = appointments.length;
       })
       .catch(err => {
