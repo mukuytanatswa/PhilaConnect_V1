@@ -1,9 +1,9 @@
 from fastapi import FastAPI, Request, Query, Form
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from logic import handle_message
-from db import get_appointments, toggle_doctor, get_doctors_all, get_hospitals, book_appointment, update_doctor_availability, cancel_appointment, reschedule_appointment, get_user_profile, set_user_profile, mark_appointment_completed, mark_no_show, cancel_old_no_shows, get_upcoming_appointments, mark_reminder_sent, get_today_count, get_yesterday_count, get_reminders_sent_today, get_upcoming_count, get_patients, get_available_times, add_blocked_slot, remove_blocked_slot, get_blocked_slots, DB_FILE
+from db import get_appointments, toggle_doctor, get_doctors_all, get_hospitals, book_appointment, update_doctor_availability, cancel_appointment, reschedule_appointment, get_user_profile, set_user_profile, mark_appointment_completed, mark_no_show, cancel_old_no_shows, get_upcoming_appointments, mark_reminder_sent, get_today_count, get_yesterday_count, get_reminders_sent_today, get_upcoming_count, get_patients, get_available_times, add_blocked_slot, remove_blocked_slot, get_blocked_slots, get_setting, set_setting, DB_FILE
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from starlette.middleware.base import BaseHTTPMiddleware
 from whatsapp import send_message
@@ -12,6 +12,8 @@ import hashlib
 import sqlite3
 import json
 import os
+import csv
+import io
 
 app = FastAPI()
 
@@ -36,7 +38,11 @@ DASHBOARD_PASS = os.getenv("DASHBOARD_PASS", "admin")
 DASHBOARD_SECRET = os.getenv("DASHBOARD_SECRET", "changeme")
 
 def _session_token():
-    return hashlib.sha256(f"{DASHBOARD_USER}:{DASHBOARD_PASS}:{DASHBOARD_SECRET}".encode()).hexdigest()
+    return hashlib.sha256(DASHBOARD_SECRET.encode()).hexdigest()
+
+def _check_password(submitted: str) -> bool:
+    db_pass = get_setting('dashboard_pass')
+    return submitted == (db_pass if db_pass else DASHBOARD_PASS)
 
 # Templates
 templates = Jinja2Templates(directory="templates")
@@ -66,7 +72,7 @@ async def login_page(request: Request):
 
 @app.post("/login")
 async def login(username: str = Form(...), password: str = Form(...)):
-    if username == DASHBOARD_USER and password == DASHBOARD_PASS:
+    if username == DASHBOARD_USER and _check_password(password):
         resp = RedirectResponse(url="/dashboard", status_code=303)
         resp.set_cookie("session", _session_token(), httponly=True, samesite="lax")
         return resp
@@ -250,6 +256,38 @@ async def api_remove_blocked_slot(slot_id: int = Form(...)):
 async def api_get_blocked_slots(doctor_id: int):
     slots = get_blocked_slots(doctor_id)
     return {"slots": [{"id": s[0], "date": s[1], "time": s[2], "label": s[3]} for s in slots]}
+
+@app.get("/export/appointments.csv")
+async def export_appointments_csv():
+    from datetime import datetime as dt
+    appointments = get_appointments()
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(['ID', 'Patient', 'Phone', 'Doctor', 'Date', 'Time', 'Status', 'Reminder Sent'])
+    for a in appointments:
+        writer.writerow([a[0], a[3], a[2], a[4], a[6], a[7], a[8], 'Yes' if a[9] else 'No'])
+    output.seek(0)
+    filename = f"appointments_{dt.now().strftime('%Y-%m-%d')}.csv"
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
+
+@app.post("/api/change-password")
+async def api_change_password(
+    current_password: str = Form(...),
+    new_password: str = Form(...),
+    confirm_password: str = Form(...)
+):
+    if not _check_password(current_password):
+        return {"status": "error", "message": "Current password is incorrect"}
+    if new_password != confirm_password:
+        return {"status": "error", "message": "Passwords do not match"}
+    if len(new_password) < 6:
+        return {"status": "error", "message": "Must be at least 6 characters"}
+    set_setting('dashboard_pass', new_password)
+    return {"status": "ok"}
 
 @app.get("/api/appointment/{appointment_id}")
 async def get_appointment_detail(appointment_id: int):

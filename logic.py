@@ -1,5 +1,5 @@
 from whatsapp import send_message, send_list
-from db import set_state, get_state, get_hospitals, get_doctors, get_doctors_all, get_available_dates, get_available_times, book_appointment, get_appointments, cancel_appointment, get_user_profile, set_user_profile, DB_FILE
+from db import set_state, get_state, get_hospitals, get_doctors, get_doctors_all, get_available_dates, get_available_times, book_appointment, get_appointments, cancel_appointment, get_user_profile, set_user_profile, get_doctor_by_id, DB_FILE
 import re
 import sqlite3
 from datetime import datetime
@@ -195,7 +195,14 @@ def handle_message(data):
                 set_state(phone, None, {})
                 date_obj = datetime.strptime(data['date'], '%Y-%m-%d')
                 date_label = date_obj.strftime('%A, %d %B %Y')
-                send_message(phone, f"Appointment confirmed.\n\nDate: {date_label}\nTime: {_fmt_time(resolved_time)}\nRef: {appointment_id}\n\nReply 'menu' for the main menu.")
+                doctor_name = get_doctor_by_id(data['doctor_id'])
+                send_message(phone,
+                    f"Appointment confirmed!\n\n"
+                    f"Doctor: {doctor_name}\n"
+                    f"Date: {date_label}\n"
+                    f"Time: {_fmt_time(resolved_time)}\n"
+                    f"Ref: #{appointment_id}\n\n"
+                    f"Reply 'menu' for the main menu.")
             else:
                 print(f"[select_time] time not in available list: {resolved_time} not in {times}")
                 send_message(phone, "Invalid selection. Please choose from the list.")

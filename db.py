@@ -59,6 +59,11 @@ def init_db():
         end_time TEXT,
         FOREIGN KEY (doctor_id) REFERENCES doctors(id)
     )''')
+    # Settings table for runtime config (e.g. password override)
+    c.execute('''CREATE TABLE IF NOT EXISTS settings (
+        key TEXT PRIMARY KEY,
+        value TEXT
+    )''')
     # Blocked slots — date=NULL means recurring every day
     c.execute('''CREATE TABLE IF NOT EXISTS blocked_slots (
         id INTEGER PRIMARY KEY,
@@ -413,6 +418,29 @@ def get_upcoming_count():
     count = c.fetchone()[0]
     conn.close()
     return count
+
+def get_doctor_by_id(doctor_id):
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute('SELECT name FROM doctors WHERE id=?', (doctor_id,))
+    row = c.fetchone()
+    conn.close()
+    return row[0] if row else 'Your doctor'
+
+def get_setting(key, default=None):
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute('SELECT value FROM settings WHERE key=?', (key,))
+    row = c.fetchone()
+    conn.close()
+    return row[0] if row else default
+
+def set_setting(key, value):
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute('INSERT OR REPLACE INTO settings (key, value) VALUES (?,?)', (key, value))
+    conn.commit()
+    conn.close()
 
 def add_blocked_slot(doctor_id, time, date=None, label='Unavailable'):
     conn = sqlite3.connect(DB_FILE)

@@ -963,6 +963,19 @@
   }
 
   .appointment-notification strong { font-weight: 600; display: block; margin-bottom: 4px; }
+
+  .booking-toast {
+    position: fixed; bottom: 24px; right: 24px;
+    background: var(--forest); color: white;
+    padding: 14px 20px; border-radius: 10px;
+    font-size: 14px; font-weight: 500;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.25); z-index: 9999;
+    animation: toastIn 0.3s ease;
+  }
+  @keyframes toastIn {
+    from { transform: translateY(16px); opacity: 0; }
+    to   { transform: translateY(0);    opacity: 1; }
+  }
 </style>
 </head>
 <body>
@@ -1002,6 +1015,9 @@
     <div class="sidebar-label">System</div>
     <div class="nav-item" onclick="showView('settings', this)">
       <span class="icon">⚙️</span> Settings
+    </div>
+    <div class="nav-item" onclick="openModal('changePassword')">
+      <span class="icon">🔑</span> Change Password
     </div>
   </div>
 
@@ -1126,13 +1142,16 @@
       <div class="panel">
         <div class="panel-header">
           <div class="panel-title">Today's Appointments — <span id="apptDateLabel">Sat 21 March 2026</span></div>
-          <div style="display:flex;gap:8px;align-items:center;">
-            <select class="form-input" id="doctorFilter" onchange="filterByDoctor(this)" style="width:auto;padding:6px 12px;font-size:12.5px;">
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <input type="text" id="apptSearch" class="form-input" placeholder="Search patient or phone…"
+                   oninput="applyFilters()" style="width:180px;padding:6px 12px;font-size:12.5px;">
+            <select class="form-input" id="doctorFilter" onchange="applyFilters()" style="width:auto;padding:6px 12px;font-size:12.5px;">
               <option value="">All Doctors</option>
               {% for doc in doctors %}
               <option value="{{ doc[0] }}">{{ doc[1] }}</option>
               {% endfor %}
             </select>
+            <a href="/export/appointments.csv" class="btn btn-ghost" style="padding:6px 14px;font-size:12.5px;text-decoration:none;">&#8595; Export CSV</a>
             <button class="topbar-btn" onclick="openModal('newAppt')" style="padding:8px 14px;font-size:12.5px;">+ Add</button>
           </div>
         </div>
@@ -1145,7 +1164,7 @@
             </thead>
             <tbody id="apptTableBody">
               {% for appt in appointments %}
-              <tr data-appt-id="{{ appt[0] }}" data-doctor-id="{{ appt[1] }}" data-status="{{ appt[8] }}" onclick="showAppointmentDetail({{ appt[0] }}, event)">
+              <tr data-appt-id="{{ appt[0] }}" data-doctor-id="{{ appt[1] }}" data-status="{{ appt[8] }}" data-patient="{{ (appt[3]~' '~appt[2])|lower }}" onclick="showAppointmentDetail({{ appt[0] }}, event)">
                 <td><strong>{{ appt[7] }}</strong></td>
                 <td><div style="display:flex;align-items:center;gap:9px;">
                   <div style="width:30px;height:30px;border-radius:50%;background:var(--terracotta-light);color:var(--terracotta);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;">{{ appt[3][:2].upper() }}</div>
@@ -1202,6 +1221,7 @@
             <span class="avail-pill {{ 'active' if day in (doc[5] or '').split(',') else '' }}" onclick="toggleDay(this, '{{ doc[0] }}', '{{ day }}')">{{ day }}</span>
             {% endfor %}
           </div>
+          <button class="btn btn-ghost" style="font-size:12px;padding:4px 10px;white-space:nowrap;" onclick="openScheduleModal({{ doc[0] }}, '{{ doc[1] }}')">Schedule</button>
           <button class="btn btn-ghost" style="font-size:12px;padding:4px 10px;white-space:nowrap;" onclick="openBlockedModal({{ doc[0] }}, '{{ doc[1] }}')">Block Times</button>
           <label class="toggle" style="transform:scale(1.2);"><input type="checkbox" {{ 'checked' if doc[4] else '' }} onchange="toggleDoc(this, '{{ doc[0] }}')"><span class="toggle-track"></span></label>
         </div>
@@ -1613,6 +1633,49 @@
   </div>
 </div>
 
+<!-- MODAL: DOCTOR SCHEDULE -->
+<div class="modal-backdrop" id="modal-doctorSchedule">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Schedule — <span id="schedDoctorName"></span></div>
+      <div class="modal-close" onclick="closeModal('doctorSchedule')">✕</div>
+    </div>
+    <div class="modal-body">
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:16px;">
+        <label class="form-label" style="margin:0;">Date:</label>
+        <input class="form-input" id="schedDate" type="date" style="width:auto;" oninput="renderSchedule()">
+      </div>
+      <div id="schedList"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('doctorSchedule')">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: CHANGE PASSWORD -->
+<div class="modal-backdrop" id="modal-changePassword">
+  <div class="modal" style="max-width:400px;">
+    <div class="modal-header">
+      <div class="modal-title">Change Password</div>
+      <div class="modal-close" onclick="closeModal('changePassword')">✕</div>
+    </div>
+    <div class="modal-body">
+      <div id="changePwMsg" style="display:none;margin-bottom:12px;font-size:13px;padding:8px 12px;border-radius:6px;background:var(--cream);"></div>
+      <div class="form-group"><label class="form-label">Current Password</label>
+        <input class="form-input" id="pwCurrent" type="password" autocomplete="current-password"></div>
+      <div class="form-group"><label class="form-label">New Password</label>
+        <input class="form-input" id="pwNew" type="password" autocomplete="new-password"></div>
+      <div class="form-group"><label class="form-label">Confirm New Password</label>
+        <input class="form-input" id="pwConfirm" type="password" autocomplete="new-password"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('changePassword')">Cancel</button>
+      <button class="btn btn-primary" onclick="submitChangePassword()">Update Password</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL: BLOCK TIMES -->
 <div class="modal-backdrop" id="modal-blockedSlots">
   <div class="modal">
@@ -1723,6 +1786,77 @@
       headers: {'Content-Type': 'application/x-www-form-urlencoded'},
       body: new URLSearchParams({doctor_id: doctorId, available_days: activeDays})
     });
+  }
+
+  // ── BOOKING ALERT ──
+  function showNewBookingAlert(count) {
+    try {
+      const ctx = new AudioContext();
+      [880, 1100].forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.frequency.value = freq; osc.type = 'sine';
+        gain.gain.setValueAtTime(0.25, ctx.currentTime + i * 0.18);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.18 + 0.4);
+        osc.start(ctx.currentTime + i * 0.18);
+        osc.stop(ctx.currentTime + i * 0.18 + 0.4);
+      });
+    } catch(e) {}
+    const t = document.createElement('div');
+    t.className = 'booking-toast';
+    t.textContent = `New booking! ${count} new appointment${count > 1 ? 's' : ''} received.`;
+    document.body.appendChild(t);
+    setTimeout(() => t.remove(), 4000);
+  }
+
+  // ── DOCTOR SCHEDULE ──
+  let currentSchedDoctorId = null;
+
+  function openScheduleModal(doctorId, doctorName) {
+    currentSchedDoctorId = doctorId;
+    document.getElementById('schedDoctorName').textContent = doctorName;
+    document.getElementById('schedDate').value = new Date().toISOString().split('T')[0];
+    renderSchedule();
+    openModal('doctorSchedule');
+  }
+
+  function renderSchedule() {
+    const date = document.getElementById('schedDate').value;
+    const statusLabels = { booked:'Confirmed', rescheduled:'Rescheduled', cancelled:'Cancelled', no_show:'No Show', completed:'Completed' };
+    const appts = Object.values(allAppointmentsCache)
+      .filter(a => String(a.doctor_id) === String(currentSchedDoctorId) && a.date === date)
+      .sort((a, b) => a.time.localeCompare(b.time));
+    const list = document.getElementById('schedList');
+    if (!appts.length) {
+      list.innerHTML = '<div style="color:var(--ink-muted);font-size:13px;">No appointments for this date.</div>';
+      return;
+    }
+    list.innerHTML = appts.map(a => `
+      <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);">
+        <strong style="min-width:75px;">${fmtTime(a.time)}</strong>
+        <span>${a.patient_name || a.phone}</span>
+        <span class="status-pill status-${a.status}" style="margin-left:auto;">${statusLabels[a.status]||a.status}</span>
+      </div>`).join('');
+  }
+
+  // ── CHANGE PASSWORD ──
+  function submitChangePassword() {
+    const fd = new FormData();
+    fd.append('current_password', document.getElementById('pwCurrent').value);
+    fd.append('new_password', document.getElementById('pwNew').value);
+    fd.append('confirm_password', document.getElementById('pwConfirm').value);
+    fetch('/api/change-password', { method: 'POST', body: fd })
+      .then(r => r.json())
+      .then(data => {
+        const msg = document.getElementById('changePwMsg');
+        msg.style.display = 'block';
+        msg.style.color = data.status === 'ok' ? 'var(--forest)' : 'var(--terracotta)';
+        msg.textContent = data.status === 'ok' ? 'Password updated successfully.' : data.message;
+        if (data.status === 'ok') {
+          ['pwCurrent','pwNew','pwConfirm'].forEach(id => document.getElementById(id).value = '');
+        }
+      });
   }
 
   // ── BLOCKED TIMES ──
@@ -1906,28 +2040,25 @@
   }
   
   // ── APPOINTMENT FILTER ──
+  function applyFilters() {
+    const search = (document.getElementById('apptSearch')?.value || '').toLowerCase();
+    const doctorId = document.getElementById('doctorFilter')?.value || '';
+    document.querySelectorAll('#apptTableBody tr').forEach(row => {
+      const matchStatus = activeStatusFilter === 'all' || row.dataset.status === activeStatusFilter;
+      const matchDoctor = !doctorId || row.dataset.doctorId === doctorId;
+      const matchSearch = !search || (row.dataset.patient || '').includes(search) || row.textContent.toLowerCase().includes(search);
+      row.style.display = (matchStatus && matchDoctor && matchSearch) ? '' : 'none';
+    });
+  }
+
   function filterAppts(status, el) {
     activeStatusFilter = status;
     document.querySelectorAll('#view-appointments .tab').forEach(t => t.classList.remove('active'));
     if(el) el.classList.add('active');
-    const rows = document.querySelectorAll('#apptTableBody tr');
-    rows.forEach(row => {
-      row.style.display = (status === 'all' || row.dataset.status === status) ? '' : 'none';
-    });
+    applyFilters();
   }
 
-  function filterByDoctor(select) {
-    const doctorId = select.value;
-    const rows = document.querySelectorAll('#apptTableBody tr');
-    
-    rows.forEach(row => {
-      if(doctorId === '') {
-        row.style.display = '';
-      } else {
-        row.style.display = row.dataset.doctorId === doctorId ? '' : 'none';
-      }
-    });
-  }
+  function filterByDoctor(select) { applyFilters(); }
 
   // ── PATIENTS PAGINATION & SEARCH ──
   let patientPage = 0;
@@ -2119,12 +2250,14 @@
             id: appt.id,
             phone: appt.phone,
             patient_name: appt.patient_name,
+            doctor_id: appt.doctor_id,
             doctor_name: appt.doctor_name,
             specialty: appt.specialty || '',
             hospital: appt.hospital,
             date: appt.date,
             time: appt.time,
-            status: appt.status
+            status: appt.status,
+            reminder_sent: appt.reminder_sent
           };
         });
         
@@ -2176,7 +2309,7 @@
               <div class="icon-btn" title="Mark Present" onclick="event.stopPropagation();markPresent(${appt.id})" style="color:var(--sage)">✓</div>
               <div class="icon-btn" title="No Show" onclick="event.stopPropagation();markNoShow(${appt.id})" style="color:var(--amber)">✗</div>` : '';
             tableHtml += `
-              <tr data-appt-id="${appt.id}" data-doctor-id="${appt.doctor_id}" data-status="${appt.status}" onclick="showAppointmentDetail(${appt.id}, event)">
+              <tr data-appt-id="${appt.id}" data-doctor-id="${appt.doctor_id}" data-status="${appt.status}" data-patient="${(appt.patient_name||appt.phone||'').toLowerCase()} ${(appt.phone||'').toLowerCase()}" onclick="showAppointmentDetail(${appt.id}, event)">
                 <td><strong>${appt.time}</strong></td>
                 <td><div style="display:flex;align-items:center;gap:9px;">
                   <div style="width:30px;height:30px;border-radius:50%;background:var(--terracotta-light);color:var(--terracotta);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;">${initials}</div>
@@ -2191,14 +2324,7 @@
 
           if(apptsTable.innerHTML !== tableHtml) {
             apptsTable.innerHTML = tableHtml;
-            // Re-apply active filters so doctor/status selections persist across refreshes
-            const doctorSel = document.getElementById('doctorFilter');
-            const doctorId = doctorSel ? doctorSel.value : '';
-            document.querySelectorAll('#apptTableBody tr').forEach(row => {
-              const matchDoctor = !doctorId || row.dataset.doctorId === doctorId;
-              const matchStatus = activeStatusFilter === 'all' || row.dataset.status === activeStatusFilter;
-              row.style.display = (matchDoctor && matchStatus) ? '' : 'none';
-            });
+            applyFilters();
           }
         }
         
@@ -2231,7 +2357,10 @@
         if (tabCancelledCount) tabCancelledCount.textContent = cancelledCount;
         if (tabNoShowCount) tabNoShowCount.textContent = noShowCount;
 
-        // Update count
+        // Booking alert
+        if (lastApptCount > 0 && appointments.length > lastApptCount) {
+          showNewBookingAlert(appointments.length - lastApptCount);
+        }
         lastApptCount = appointments.length;
       })
       .catch(err => {
