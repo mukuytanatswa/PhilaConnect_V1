@@ -155,10 +155,18 @@ def handle_message(data):
 
         if date:
             data['date'] = date
-            set_state(phone, "select_time", data)
-            send_time_list(phone, data['doctor_id'], data['date'], data)
+            send_time_period_prompt(phone, data['doctor_id'], data['date'], data, prefix='time')
         else:
             send_message(phone, "Please select a date from the list.")
+
+    elif state == 'select_time_period':
+        period_map = {'1': 'morning', '2': 'afternoon', '3': 'late'}
+        period = period_map.get(text.strip())
+        if period:
+            send_time_list(phone, data['doctor_id'], data['date'], data,
+                           prefix=data.get('_time_prefix', 'time'), period=period)
+        else:
+            send_message(phone, "Please reply 1, 2, or 3.")
 
     # Handling time selection
     elif state == "select_time":
@@ -236,10 +244,18 @@ def handle_message(data):
 
         if date:
             data['new_date'] = date
-            set_state(phone, "reschedule_time", data)
-            send_time_list(phone, data['doctor_id'], data['new_date'], data, prefix='rtime')
+            send_time_period_prompt(phone, data['doctor_id'], data['new_date'], data, prefix='rtime')
         else:
             send_message(phone, "Please select a date from the list.")
+
+    elif state == 'reschedule_time_period':
+        period_map = {'1': 'morning', '2': 'afternoon', '3': 'late'}
+        period = period_map.get(text.strip())
+        if period:
+            send_time_list(phone, data['doctor_id'], data['new_date'], data,
+                           prefix='rtime', period=period)
+        else:
+            send_message(phone, "Please reply 1, 2, or 3.")
 
     # Handling reschedule time
     elif state == "reschedule_time":
@@ -418,29 +434,49 @@ def send_date_list(phone, doctor_id, context=None):
         send_message(phone, msg.strip())
 
 
-def send_time_list(phone, doctor_id, date, context=None, prefix='time'):
-    """Send time slots as a scrollable WhatsApp interactive list, grouped by AM/PM."""
-    times = get_available_times(doctor_id, date)
-    morning = [t for t in times if int(t.split(':')[0]) < 12]
-    early_afternoon = [t for t in times if 12 <= int(t.split(':')[0]) < 15]
-    late_afternoon = [t for t in times if int(t.split(':')[0]) >= 15]
+def send_time_period_prompt(phone, doctor_id, date, context=None, prefix='time'):
+    """Ask user to select a time period before showing the time list."""
+    date_obj = datetime.strptime(date, '%Y-%m-%d')
+    date_label = f"{date_obj.strftime('%a')} {date_obj.day} {date_obj.strftime('%b')}"
+    msg = (f"Date: {date_label}\n\nSelect a time of day:\n\n"
+           f"1. Morning (9:00 AM - 11:30 AM)\n"
+           f"2. Afternoon (12:00 PM - 2:30 PM)\n"
+           f"3. Late Afternoon (3:00 PM - 5:00 PM)")
+    send_message(phone, msg)
+    data = dict(context or {})
+    data['_time_prefix'] = prefix
+    next_state = 'select_time_period' if prefix == 'time' else 'reschedule_time_period'
+    set_state(phone, next_state, data)
 
-    sections = []
-    if morning:
-        sections.append({
-            "title": "Morning",
-            "rows": [{"id": f"{prefix}_{t}", "title": _fmt_time(t), "description": "Available"} for t in morning],
-        })
-    if early_afternoon:
-        sections.append({
-            "title": "Afternoon",
-            "rows": [{"id": f"{prefix}_{t}", "title": _fmt_time(t), "description": "Available"} for t in early_afternoon],
-        })
-    if late_afternoon:
-        sections.append({
-            "title": "Late Afternoon",
-            "rows": [{"id": f"{prefix}_{t}", "title": _fmt_time(t), "description": "Available"} for t in late_afternoon],
-        })
+
+def send_time_list(phone, doctor_id, date, context=None, prefix='time', period=None):
+    """Send time slots as a scrollable WhatsApp interactive list."""
+    times = get_available_times(doctor_id, date)
+
+    if period == 'morning':
+        times = [t for t in times if int(t.split(':')[0]) < 12]
+        sections = [{"title": "Morning", "rows": [{"id": f"{prefix}_{t}", "title": _fmt_time(t), "description": "Available"} for t in times]}] if times else []
+    elif period == 'afternoon':
+        times = [t for t in times if 12 <= int(t.split(':')[0]) < 15]
+        sections = [{"title": "Afternoon", "rows": [{"id": f"{prefix}_{t}", "title": _fmt_time(t), "description": "Available"} for t in times]}] if times else []
+    elif period == 'late':
+        times = [t for t in times if int(t.split(':')[0]) >= 15]
+        sections = [{"title": "Late Afternoon", "rows": [{"id": f"{prefix}_{t}", "title": _fmt_time(t), "description": "Available"} for t in times]}] if times else []
+    else:
+        morning = [t for t in times if int(t.split(':')[0]) < 12]
+        early_afternoon = [t for t in times if 12 <= int(t.split(':')[0]) < 15]
+        late_afternoon = [t for t in times if int(t.split(':')[0]) >= 15]
+        sections = []
+        if morning:
+            sections.append({"title": "Morning", "rows": [{"id": f"{prefix}_{t}", "title": _fmt_time(t), "description": "Available"} for t in morning]})
+        if early_afternoon:
+            sections.append({"title": "Afternoon", "rows": [{"id": f"{prefix}_{t}", "title": _fmt_time(t), "description": "Available"} for t in early_afternoon]})
+        if late_afternoon:
+            sections.append({"title": "Late Afternoon", "rows": [{"id": f"{prefix}_{t}", "title": _fmt_time(t), "description": "Available"} for t in late_afternoon]})
+
+    if not sections:
+        send_message(phone, "No times available for this period. Please reply 'menu' and try another date.")
+        return
 
     date_obj = datetime.strptime(date, '%Y-%m-%d')
     date_label = f"{date_obj.strftime('%a')} {date_obj.day} {date_obj.strftime('%b')}"
@@ -448,7 +484,8 @@ def send_time_list(phone, doctor_id, date, context=None, prefix='time'):
     data = dict(context or {})
     all_times = [r['id'].replace(f'{prefix}_', '') for s in sections for r in s['rows']]
     data['time_fallback'] = {str(i): t for i, t in enumerate(all_times, 1)}
-    set_state(phone, 'select_time', data)
+    next_state = 'select_time' if prefix == 'time' else 'reschedule_time'
+    set_state(phone, next_state, data)
     if not send_list(phone, f"Date: {date_label}\n\nSelect a time:", "View Times", sections):
         msg = "Select a time (reply with number):\n\n"
         for i, t in enumerate(all_times, 1):
