@@ -422,7 +422,8 @@ def send_time_list(phone, doctor_id, date, context=None, prefix='time'):
     """Send time slots as a scrollable WhatsApp interactive list, grouped by AM/PM."""
     times = get_available_times(doctor_id, date)
     morning = [t for t in times if int(t.split(':')[0]) < 12]
-    afternoon = [t for t in times if int(t.split(':')[0]) >= 12]
+    early_afternoon = [t for t in times if 12 <= int(t.split(':')[0]) < 15]
+    late_afternoon = [t for t in times if int(t.split(':')[0]) >= 15]
 
     sections = []
     if morning:
@@ -430,10 +431,15 @@ def send_time_list(phone, doctor_id, date, context=None, prefix='time'):
             "title": "Morning",
             "rows": [{"id": f"{prefix}_{t}", "title": _fmt_time(t), "description": "Available"} for t in morning],
         })
-    if afternoon:
+    if early_afternoon:
         sections.append({
             "title": "Afternoon",
-            "rows": [{"id": f"{prefix}_{t}", "title": _fmt_time(t), "description": "Available"} for t in afternoon],
+            "rows": [{"id": f"{prefix}_{t}", "title": _fmt_time(t), "description": "Available"} for t in early_afternoon],
+        })
+    if late_afternoon:
+        sections.append({
+            "title": "Late Afternoon",
+            "rows": [{"id": f"{prefix}_{t}", "title": _fmt_time(t), "description": "Available"} for t in late_afternoon],
         })
 
     date_obj = datetime.strptime(date, '%Y-%m-%d')
