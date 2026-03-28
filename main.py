@@ -1,5 +1,5 @@
 from fastapi import FastAPI, Request, Query, Form
-from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from logic import handle_message
@@ -14,6 +14,7 @@ import json
 import os
 import csv
 import io
+import hmac
 
 app = FastAPI()
 
@@ -36,6 +37,11 @@ TIER_LIMITS = {"solo": 1, "practice": 5, "enterprise": None}
 DASHBOARD_USER = os.getenv("DASHBOARD_USER", "admin")
 DASHBOARD_PASS = os.getenv("DASHBOARD_PASS", "admin")
 DASHBOARD_SECRET = os.getenv("DASHBOARD_SECRET", "changeme")
+WHATSAPP_APP_SECRET = os.getenv("WHATSAPP_APP_SECRET", "")
+
+_missing_vars = [v for v in ["WHATSAPP_TOKEN", "WHATSAPP_PHONE_ID", "WHATSAPP_APP_SECRET"] if not os.getenv(v)]
+if _missing_vars:
+    print(f"WARNING: Missing env vars: {', '.join(_missing_vars)} — WhatsApp messaging will not work.", flush=True)
 
 def _session_token():
     return hashlib.sha256(DASHBOARD_SECRET.encode()).hexdigest()
@@ -61,7 +67,13 @@ def verify(
 # Endpoint for receiving messages from WhatsApp
 @app.post("/webhook")
 async def webhook(request: Request):
-    data = await request.json()
+    body = await request.body()
+    if WHATSAPP_APP_SECRET:
+        sig_header = request.headers.get("X-Hub-Signature-256", "")
+        expected = "sha256=" + hmac.new(WHATSAPP_APP_SECRET.encode(), body, hashlib.sha256).hexdigest()
+        if not hmac.compare_digest(sig_header, expected):
+            return JSONResponse({"status": "unauthorized"}, status_code=401)
+    data = json.loads(body)
     handle_message(data)
     return {"status": "ok"}
 
