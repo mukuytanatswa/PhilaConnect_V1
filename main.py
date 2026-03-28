@@ -3,7 +3,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from logic import handle_message
-from db import get_appointments, toggle_doctor, get_doctors_all, get_hospitals, book_appointment, update_doctor_availability, cancel_appointment, reschedule_appointment, get_user_profile, set_user_profile, mark_appointment_completed, mark_no_show, cancel_old_no_shows, get_upcoming_appointments, mark_reminder_sent, get_today_count, get_yesterday_count, get_reminders_sent_today, get_upcoming_count, get_patients, get_available_times, DB_FILE
+from db import get_appointments, toggle_doctor, get_doctors_all, get_hospitals, book_appointment, update_doctor_availability, cancel_appointment, reschedule_appointment, get_user_profile, set_user_profile, mark_appointment_completed, mark_no_show, cancel_old_no_shows, get_upcoming_appointments, mark_reminder_sent, get_today_count, get_yesterday_count, get_reminders_sent_today, get_upcoming_count, get_patients, get_available_times, add_blocked_slot, remove_blocked_slot, get_blocked_slots, DB_FILE
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from starlette.middleware.base import BaseHTTPMiddleware
 from whatsapp import send_message
@@ -230,6 +230,26 @@ async def reschedule_appt(
 async def api_available_times(doctor_id: int, date: str):
     times = get_available_times(doctor_id, date)
     return {"times": times}
+
+@app.post("/api/blocked-slot/add")
+async def api_add_blocked_slot(
+    doctor_id: int = Form(...),
+    time: str = Form(...),
+    date: str = Form(""),
+    label: str = Form("Unavailable")
+):
+    add_blocked_slot(doctor_id, time, date or None, label)
+    return {"status": "ok"}
+
+@app.post("/api/blocked-slot/remove")
+async def api_remove_blocked_slot(slot_id: int = Form(...)):
+    remove_blocked_slot(slot_id)
+    return {"status": "ok"}
+
+@app.get("/api/blocked-slots/{doctor_id}")
+async def api_get_blocked_slots(doctor_id: int):
+    slots = get_blocked_slots(doctor_id)
+    return {"slots": [{"id": s[0], "date": s[1], "time": s[2], "label": s[3]} for s in slots]}
 
 @app.get("/api/appointment/{appointment_id}")
 async def get_appointment_detail(appointment_id: int):

@@ -59,6 +59,15 @@ def init_db():
         end_time TEXT,
         FOREIGN KEY (doctor_id) REFERENCES doctors(id)
     )''')
+    # Blocked slots — date=NULL means recurring every day
+    c.execute('''CREATE TABLE IF NOT EXISTS blocked_slots (
+        id INTEGER PRIMARY KEY,
+        doctor_id INTEGER,
+        date TEXT,
+        time TEXT NOT NULL,
+        label TEXT DEFAULT 'Unavailable',
+        FOREIGN KEY (doctor_id) REFERENCES doctors(id)
+    )''')
 
     # Ensure column available_days exists for backward compatibility
     c.execute("PRAGMA table_info(doctors)")
@@ -168,14 +177,20 @@ def get_available_times(doctor_id, date):
         (doctor_id, date)
     )
     booked = {row[0] for row in c.fetchall()}
+    c.execute(
+        "SELECT time FROM blocked_slots WHERE doctor_id=? AND (date IS NULL OR date=?)",
+        (doctor_id, date)
+    )
+    blocked = {row[0] for row in c.fetchall()}
     conn.close()
+    unavailable = booked | blocked
     times = []
     for hour in range(9, 17):
         for minute in ('00', '30'):
             t = f'{hour:02d}:{minute}'
-            if t not in booked:
+            if t not in unavailable:
                 times.append(t)
-    if '17:00' not in booked:
+    if '17:00' not in unavailable:
         times.append('17:00')
     return times
 
@@ -398,6 +413,30 @@ def get_upcoming_count():
     count = c.fetchone()[0]
     conn.close()
     return count
+
+def add_blocked_slot(doctor_id, time, date=None, label='Unavailable'):
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute('INSERT INTO blocked_slots (doctor_id, date, time, label) VALUES (?,?,?,?)',
+              (doctor_id, date, time, label))
+    conn.commit()
+    conn.close()
+
+def remove_blocked_slot(slot_id):
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute('DELETE FROM blocked_slots WHERE id=?', (slot_id,))
+    conn.commit()
+    conn.close()
+
+def get_blocked_slots(doctor_id):
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute('SELECT id, date, time, label FROM blocked_slots WHERE doctor_id=? ORDER BY date IS NOT NULL, date, time',
+              (doctor_id,))
+    rows = c.fetchall()
+    conn.close()
+    return rows
 
 # Initialize DB on import
 init_db()

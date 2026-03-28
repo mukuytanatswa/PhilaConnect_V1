@@ -1202,6 +1202,7 @@
             <span class="avail-pill {{ 'active' if day in (doc[5] or '').split(',') else '' }}" onclick="toggleDay(this, '{{ doc[0] }}', '{{ day }}')">{{ day }}</span>
             {% endfor %}
           </div>
+          <button class="btn btn-ghost" style="font-size:12px;padding:4px 10px;white-space:nowrap;" onclick="openBlockedModal({{ doc[0] }}, '{{ doc[1] }}')">Block Times</button>
           <label class="toggle" style="transform:scale(1.2);"><input type="checkbox" {{ 'checked' if doc[4] else '' }} onchange="toggleDoc(this, '{{ doc[0] }}')"><span class="toggle-track"></span></label>
         </div>
         {% endfor %}
@@ -1612,6 +1613,55 @@
   </div>
 </div>
 
+<!-- MODAL: BLOCK TIMES -->
+<div class="modal-backdrop" id="modal-blockedSlots">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Block Times — <span id="blockedDoctorName"></span></div>
+      <div class="modal-close" onclick="closeModal('blockedSlots')">✕</div>
+    </div>
+    <div class="modal-body">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;align-items:flex-end;">
+        <div class="form-group" style="flex:1;min-width:140px;">
+          <label class="form-label">Date <span style="color:var(--ink-muted);font-size:11px;">(blank = recurring daily)</span></label>
+          <input class="form-input" id="blockDate" type="date">
+        </div>
+        <div class="form-group" style="flex:1;min-width:120px;">
+          <label class="form-label">Time</label>
+          <select class="form-input" id="blockTime">
+            <option value="09:00">9:00 AM</option>
+            <option value="09:30">9:30 AM</option>
+            <option value="10:00">10:00 AM</option>
+            <option value="10:30">10:30 AM</option>
+            <option value="11:00">11:00 AM</option>
+            <option value="11:30">11:30 AM</option>
+            <option value="12:00">12:00 PM</option>
+            <option value="12:30">12:30 PM</option>
+            <option value="13:00">1:00 PM</option>
+            <option value="13:30">1:30 PM</option>
+            <option value="14:00">2:00 PM</option>
+            <option value="14:30">2:30 PM</option>
+            <option value="15:00">3:00 PM</option>
+            <option value="15:30">3:30 PM</option>
+            <option value="16:00">4:00 PM</option>
+            <option value="16:30">4:30 PM</option>
+            <option value="17:00">5:00 PM</option>
+          </select>
+        </div>
+        <div class="form-group" style="flex:1;min-width:120px;">
+          <label class="form-label">Label <span style="color:var(--ink-muted);font-size:11px;">(optional)</span></label>
+          <input class="form-input" id="blockLabel" placeholder="e.g. Lunch">
+        </div>
+        <button class="btn btn-primary" onclick="addBlockedSlot()" style="margin-bottom:0;">Add</button>
+      </div>
+      <div id="blockedSlotsList"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('blockedSlots')">Close</button>
+    </div>
+  </div>
+</div>
+
 <script>
   // ── INIT ──
   const dateEl = document.getElementById('currentDate');
@@ -1673,6 +1723,65 @@
       headers: {'Content-Type': 'application/x-www-form-urlencoded'},
       body: new URLSearchParams({doctor_id: doctorId, available_days: activeDays})
     });
+  }
+
+  // ── BLOCKED TIMES ──
+  let currentBlockDoctorId = null;
+
+  function openBlockedModal(doctorId, doctorName) {
+    currentBlockDoctorId = doctorId;
+    document.getElementById('blockedDoctorName').textContent = doctorName;
+    document.getElementById('blockDate').value = '';
+    document.getElementById('blockLabel').value = '';
+    loadBlockedSlots(doctorId);
+    openModal('blockedSlots');
+  }
+
+  function loadBlockedSlots(doctorId) {
+    fetch(`/api/blocked-slots/${doctorId}`)
+      .then(r => r.json())
+      .then(data => {
+        const list = document.getElementById('blockedSlotsList');
+        if (!data.slots.length) {
+          list.innerHTML = '<div style="color:var(--ink-muted);font-size:13px;">No blocked times set.</div>';
+          return;
+        }
+        list.innerHTML = data.slots.map(s => `
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);">
+            <div>
+              <strong>${fmtTime(s.time)}</strong>
+              <span style="color:var(--ink-muted);font-size:12px;margin-left:8px;">
+                ${s.date ? s.date : '&#x1f501; Every day'} &mdash; ${s.label}
+              </span>
+            </div>
+            <button class="btn btn-ghost" style="font-size:12px;color:var(--terracotta);"
+                    onclick="removeBlockedSlot(${s.id})">Remove</button>
+          </div>`).join('');
+      });
+  }
+
+  function addBlockedSlot() {
+    const fd = new FormData();
+    fd.append('doctor_id', currentBlockDoctorId);
+    fd.append('time', document.getElementById('blockTime').value);
+    fd.append('date', document.getElementById('blockDate').value);
+    fd.append('label', document.getElementById('blockLabel').value || 'Unavailable');
+    fetch('/api/blocked-slot/add', { method: 'POST', body: fd })
+      .then(() => loadBlockedSlots(currentBlockDoctorId));
+  }
+
+  function removeBlockedSlot(slotId) {
+    const fd = new FormData();
+    fd.append('slot_id', slotId);
+    fetch('/api/blocked-slot/remove', { method: 'POST', body: fd })
+      .then(() => loadBlockedSlots(currentBlockDoctorId));
+  }
+
+  function fmtTime(t) {
+    const [h, m] = t.split(':').map(Number);
+    const period = h < 12 ? 'AM' : 'PM';
+    const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+    return `${h12}:${m.toString().padStart(2,'0')} ${period}`;
   }
 
   // ── APPOINTMENT DETAIL ──
