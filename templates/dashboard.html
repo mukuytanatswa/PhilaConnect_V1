@@ -1343,13 +1343,21 @@
       <div class="doc-management-card">
         <div class="panel-header">
           <div class="panel-title">Doctor Management</div>
-          <button class="btn btn-primary" style="padding:8px 16px;font-size:12.5px;" onclick="openModal('addDoctor')">+ Add Doctor</button>
+          <div style="display:flex;align-items:center;gap:10px;">
+            {% if current_role == 'superadmin' %}
+            <select id="doctorClinicFilter" onchange="filterDoctorsByClinic()" class="form-input" style="width:auto;padding:6px 12px;font-size:12.5px;">
+              <option value="">All Clinics</option>
+              {% for h in hospitals %}<option value="{{ h[0] }}">{{ h[1] }}</option>{% endfor %}
+            </select>
+            {% endif %}
+            <button class="btn btn-primary" style="padding:8px 16px;font-size:12.5px;" onclick="openModal('addDoctor')">+ Add Doctor</button>
+          </div>
         </div>
 
         {% set days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] %}
 
         {% for doc in doctors %}
-        <div class="doc-full-row" data-doc-id="{{ doc[0] }}">
+        <div class="doc-full-row" data-doc-id="{{ doc[0] }}" data-hospital-id="{{ doc[3] }}">
           <div class="doc-avatar" style="background:var(--terracotta-light);color:var(--terracotta);width:48px;height:48px;font-size:17px;">{{ doc[1][:2].upper() }}</div>
           <div class="doc-info">
             <div class="doc-name" style="font-size:15px;">{{ doc[1] }}</div>
@@ -1377,7 +1385,15 @@
       <div class="panel">
         <div class="panel-header">
           <div class="panel-title">Patient Records — <span id="patientCountLabel">{{ patients_count }} total</span></div>
-          <input type="text" id="patientSearch" class="form-input" placeholder="Search by name or phone…" oninput="filterPatients()" style="width:220px;padding:6px 12px;font-size:12.5px;">
+          <div style="display:flex;align-items:center;gap:10px;">
+            {% if current_role == 'superadmin' %}
+            <select id="patientClinicFilter" onchange="filterPatients()" class="form-input" style="width:auto;padding:6px 12px;font-size:12.5px;">
+              <option value="">All Clinics</option>
+              {% for h in hospitals %}<option value="{{ h[0] }}">{{ h[1] }}</option>{% endfor %}
+            </select>
+            {% endif %}
+            <input type="text" id="patientSearch" class="form-input" placeholder="Search by name or phone…" oninput="filterPatients()" style="width:220px;padding:6px 12px;font-size:12.5px;">
+          </div>
         </div>
         <div class="panel-body" style="padding:0 22px;">
           <table class="appt-table">
@@ -1386,7 +1402,7 @@
             </thead>
             <tbody id="patientTableBody">
               {% for p in patients %}
-              <tr data-name="{{ (p[1] or p[0])|lower }}" data-phone="{{ p[0] }}">
+              <tr data-name="{{ (p[1] or p[0])|lower }}" data-phone="{{ p[0] }}" data-hospital-id="{{ p[6] or '' }}">
                 <td><div style="display:flex;align-items:center;gap:9px;">
                   <div style="width:30px;height:30px;border-radius:50%;background:var(--sage-light);color:var(--sage);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;">
                     {{ (p[1] or p[0])[:2]|upper }}
@@ -2250,11 +2266,13 @@
   function renderPatientPage() {
     const rows = Array.from(document.querySelectorAll('#patientTableBody tr'));
     const search = (document.getElementById('patientSearch')?.value || '').toLowerCase();
+    const clinicFilter = (document.getElementById('patientClinicFilter')?.value || '');
     let visible = 0;
     rows.forEach(row => {
       const matchSearch = !search || row.dataset.name.includes(search) || row.dataset.phone.includes(search);
-      row.style.display = matchSearch ? '' : 'none';
-      if (matchSearch) visible++;
+      const matchClinic = !clinicFilter || row.dataset.hospitalId == clinicFilter;
+      row.style.display = (matchSearch && matchClinic) ? '' : 'none';
+      if (matchSearch && matchClinic) visible++;
     });
     const filtered = rows.filter(r => r.style.display !== 'none');
     const totalPages = Math.ceil(filtered.length / PATIENTS_PER_PAGE);
@@ -2272,6 +2290,13 @@
   function filterPatients() {
     patientPage = 0;
     renderPatientPage();
+  }
+
+  function filterDoctorsByClinic() {
+    const clinicFilter = (document.getElementById('doctorClinicFilter')?.value || '');
+    document.querySelectorAll('.doc-full-row[data-hospital-id]').forEach(row => {
+      row.style.display = (!clinicFilter || row.dataset.hospitalId == clinicFilter) ? '' : 'none';
+    });
   }
 
   function changePatientPage(dir) {

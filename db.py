@@ -456,7 +456,11 @@ def get_patients(hospital_id=None):
                    (SELECT d.name FROM appointments a2
                     JOIN doctors d ON a2.doctor_id = d.id
                     WHERE a2.phone = up.phone AND d.hospital_id = ?
-                    ORDER BY a2.date DESC, a2.time DESC LIMIT 1) AS last_doctor
+                    ORDER BY a2.date DESC, a2.time DESC LIMIT 1) AS last_doctor,
+                   (SELECT d.hospital_id FROM appointments a2
+                    JOIN doctors d ON a2.doctor_id = d.id
+                    WHERE a2.phone = up.phone
+                    ORDER BY a2.date DESC, a2.time DESC LIMIT 1) AS primary_hospital_id
             FROM user_profiles up
             JOIN appointments any_a ON up.phone = any_a.phone
             JOIN doctors any_d ON any_a.doctor_id = any_d.id AND any_d.hospital_id = ?
@@ -474,7 +478,11 @@ def get_patients(hospital_id=None):
                    (SELECT d.name FROM appointments a2
                     JOIN doctors d ON a2.doctor_id = d.id
                     WHERE a2.phone = up.phone
-                    ORDER BY a2.date DESC, a2.time DESC LIMIT 1) AS last_doctor
+                    ORDER BY a2.date DESC, a2.time DESC LIMIT 1) AS last_doctor,
+                   (SELECT d.hospital_id FROM appointments a2
+                    JOIN doctors d ON a2.doctor_id = d.id
+                    WHERE a2.phone = up.phone
+                    ORDER BY a2.date DESC, a2.time DESC LIMIT 1) AS primary_hospital_id
             FROM user_profiles up
             LEFT JOIN appointments a ON up.phone = a.phone
                 AND a.status = 'completed'
