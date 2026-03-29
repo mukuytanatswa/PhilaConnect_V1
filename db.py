@@ -253,6 +253,15 @@ def get_hospitals():
     conn.close()
     return hospitals
 
+def add_hospital(name):
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute('INSERT INTO hospitals (name) VALUES (?)', (name,))
+    new_id = c.lastrowid
+    conn.commit()
+    conn.close()
+    return new_id
+
 def get_doctors(hospital_id):
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()

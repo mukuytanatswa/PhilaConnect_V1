@@ -1418,6 +1418,98 @@
           </div>
         </div>
       </div>
+
+      {% if current_role == 'superadmin' %}
+
+      <!-- Manage Clinics (superadmin only) -->
+      <div class="panel" style="margin-top:20px;">
+        <div class="panel-header">
+          <div class="panel-title">Manage Clinics</div>
+        </div>
+        <div class="panel-body">
+          <table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:16px;" id="clinicsTable">
+            <thead>
+              <tr style="border-bottom:1.5px solid var(--border);">
+                <th style="text-align:left;padding:6px 8px;color:var(--ink-muted);font-weight:500;">ID</th>
+                <th style="text-align:left;padding:6px 8px;color:var(--ink-muted);font-weight:500;">Clinic Name</th>
+              </tr>
+            </thead>
+            <tbody id="clinicsTableBody">
+              {% for h in hospitals %}
+              <tr style="border-bottom:1px solid var(--border);">
+                <td style="padding:8px;color:var(--ink-muted);">{{ h[0] }}</td>
+                <td style="padding:8px;color:var(--ink);font-weight:500;">{{ h[1] }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          <form onsubmit="addClinic(event)" style="display:flex;gap:10px;align-items:flex-end;">
+            <div class="form-group" style="flex:1;margin-bottom:0;">
+              <label class="form-label">New Clinic Name</label>
+              <input class="form-input" id="newClinicName" placeholder="e.g. Sandton Health Centre" required style="margin-bottom:0;">
+            </div>
+            <button class="btn btn-primary" type="submit" style="white-space:nowrap;">Add Clinic</button>
+          </form>
+          <div id="addClinicMsg" style="margin-top:10px;font-size:13px;display:none;"></div>
+        </div>
+      </div>
+
+      <!-- Staff Accounts (superadmin only) -->
+      <div class="panel" style="margin-top:20px;">
+        <div class="panel-header">
+          <div class="panel-title">Staff Accounts</div>
+        </div>
+        <div class="panel-body">
+          <table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:16px;">
+            <thead>
+              <tr style="border-bottom:1.5px solid var(--border);">
+                <th style="text-align:left;padding:6px 8px;color:var(--ink-muted);font-weight:500;">Username</th>
+                <th style="text-align:left;padding:6px 8px;color:var(--ink-muted);font-weight:500;">Role</th>
+                <th style="text-align:left;padding:6px 8px;color:var(--ink-muted);font-weight:500;">Clinic</th>
+                <th style="padding:6px 8px;"></th>
+              </tr>
+            </thead>
+            <tbody id="staffTableBody">
+              <!-- populated by loadStaff() on page load -->
+            </tbody>
+          </table>
+          <form onsubmit="addStaff(event)">
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Username</label>
+                <input class="form-input" id="newStaffUsername" placeholder="e.g. clinicadmin" required>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Password</label>
+                <input class="form-input" id="newStaffPassword" type="password" placeholder="Min. 6 characters" required>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Role</label>
+                <select class="form-input" id="newStaffRole">
+                  <option value="admin">Admin (single clinic)</option>
+                  <option value="superadmin">Superadmin (all clinics)</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Clinic</label>
+                <select class="form-input" id="newStaffClinic">
+                  <option value="">— All clinics (superadmin) —</option>
+                  {% for h in hospitals %}
+                  <option value="{{ h[0] }}">{{ h[1] }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+            </div>
+            <button class="btn btn-primary" type="submit" style="margin-top:4px;">Add Staff Account</button>
+          </form>
+          <div id="addStaffMsg" style="margin-top:10px;font-size:13px;display:none;"></div>
+        </div>
+      </div>
+
+      {% endif %}
+
     </div>
 
   </div>
@@ -2226,8 +2318,101 @@
       });
   }
 
+  // ── CLINIC & STAFF MANAGEMENT (superadmin) ──────────────────────────────
+
+  async function addClinic(event) {
+    event.preventDefault();
+    const name = document.getElementById('newClinicName').value.trim();
+    const msg = document.getElementById('addClinicMsg');
+    if (!name) return;
+    const fd = new FormData();
+    fd.append('name', name);
+    const res = await fetch('/api/clinic/add', { method: 'POST', body: fd });
+    const data = await res.json();
+    msg.style.display = 'block';
+    if (data.status === 'ok') {
+      msg.style.color = 'var(--sage)';
+      msg.textContent = `Clinic "${data.name}" added (ID: ${data.id}).`;
+      document.getElementById('newClinicName').value = '';
+      // Append to table
+      const tbody = document.getElementById('clinicsTableBody');
+      const tr = document.createElement('tr');
+      tr.style.borderBottom = '1px solid var(--border)';
+      tr.innerHTML = `<td style="padding:8px;color:var(--ink-muted);">${data.id}</td><td style="padding:8px;color:var(--ink);font-weight:500;">${data.name}</td>`;
+      tbody.appendChild(tr);
+      // Also add to staff clinic dropdown
+      const sel = document.getElementById('newStaffClinic');
+      if (sel) {
+        const opt = document.createElement('option');
+        opt.value = data.id;
+        opt.textContent = data.name;
+        sel.appendChild(opt);
+      }
+    } else {
+      msg.style.color = 'var(--terracotta)';
+      msg.textContent = data.message || 'Error adding clinic.';
+    }
+  }
+
+  async function loadStaff() {
+    const tbody = document.getElementById('staffTableBody');
+    if (!tbody) return;
+    const res = await fetch('/api/staff');
+    if (!res.ok) return;
+    const data = await res.json();
+    tbody.innerHTML = '';
+    (data.users || []).forEach(u => {
+      const tr = document.createElement('tr');
+      tr.style.borderBottom = '1px solid var(--border)';
+      tr.innerHTML = `
+        <td style="padding:8px;color:var(--ink);font-weight:500;">${u.username}</td>
+        <td style="padding:8px;"><span style="font-size:11px;padding:2px 8px;border-radius:10px;background:${u.role==='superadmin'?'var(--terracotta-light)':'var(--sky-light)'};color:${u.role==='superadmin'?'var(--terracotta)':'var(--sky)'};">${u.role}</span></td>
+        <td style="padding:8px;color:var(--ink-muted);">${u.hospital_name || '— All —'}</td>
+        <td style="padding:8px;text-align:right;"><button onclick="deleteStaff(${u.id})" style="background:none;border:none;color:var(--terracotta);cursor:pointer;font-size:12px;padding:2px 6px;">Remove</button></td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  async function addStaff(event) {
+    event.preventDefault();
+    const username = document.getElementById('newStaffUsername').value.trim();
+    const password = document.getElementById('newStaffPassword').value;
+    const role = document.getElementById('newStaffRole').value;
+    const hospital_id = document.getElementById('newStaffClinic').value;
+    const msg = document.getElementById('addStaffMsg');
+    if (!username || !password) return;
+    const fd = new FormData();
+    fd.append('username', username);
+    fd.append('password', password);
+    fd.append('role', role);
+    if (hospital_id) fd.append('hospital_id', hospital_id);
+    const res = await fetch('/api/staff/add', { method: 'POST', body: fd });
+    const data = await res.json();
+    msg.style.display = 'block';
+    if (data.status === 'ok') {
+      msg.style.color = 'var(--sage)';
+      msg.textContent = `Staff account "${username}" created.`;
+      document.getElementById('newStaffUsername').value = '';
+      document.getElementById('newStaffPassword').value = '';
+      loadStaff();
+    } else {
+      msg.style.color = 'var(--terracotta)';
+      msg.textContent = data.message || 'Error creating account.';
+    }
+  }
+
+  async function deleteStaff(userId) {
+    if (!confirm('Remove this staff account?')) return;
+    const fd = new FormData();
+    fd.append('user_id', userId);
+    await fetch('/api/staff/delete', { method: 'POST', body: fd });
+    loadStaff();
+  }
+
   // ── STARTUP ──
   startAlertPolling();
+  loadStaff();
 
   // ── AUTO-REFRESH APPOINTMENTS IN BACKGROUND (SEAMLESS) ──
   let autoRefreshEnabled = true;

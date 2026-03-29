@@ -14,7 +14,7 @@ from db import (
     get_blocked_slots, get_setting, set_setting, DB_FILE,
     get_clinic_user_by_username, verify_password, create_session,
     get_session, delete_session, update_clinic_user_password, _hash_password,
-    list_clinic_users, create_clinic_user, delete_clinic_user,
+    list_clinic_users, create_clinic_user, delete_clinic_user, add_hospital,
 )
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -507,6 +507,28 @@ async def mark_appointment_complete(request: Request):
         return {"status": "ok", "message": "Appointment marked as completed"}
     except Exception as e:
         return {"error": str(e)}
+
+# ── Clinic management (superadmin only) ─────────────────────────────────────
+
+@app.get("/api/clinics")
+async def get_clinics(request: Request):
+    if getattr(request.state, 'role', None) != 'superadmin':
+        return JSONResponse({"error": "Forbidden"}, status_code=403)
+    hospitals = get_hospitals()
+    return {"clinics": [{"id": h[0], "name": h[1]} for h in hospitals]}
+
+@app.post("/api/clinic/add")
+async def api_add_clinic(request: Request, name: str = Form(...)):
+    if getattr(request.state, 'role', None) != 'superadmin':
+        return JSONResponse({"error": "Forbidden"}, status_code=403)
+    name = name.strip()
+    if not name:
+        return {"status": "error", "message": "Clinic name cannot be empty"}
+    try:
+        new_id = add_hospital(name)
+        return {"status": "ok", "id": new_id, "name": name}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
 
 # ── Staff management (superadmin only) ──────────────────────────────────────
 
