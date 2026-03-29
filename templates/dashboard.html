@@ -1007,9 +1007,6 @@
     <div class="nav-item" onclick="showView('patients', this)">
       Patients
     </div>
-    <div class="nav-item" onclick="showView('notifications', this)">
-      Reminders
-    </div>
   </div>
 
   <div class="sidebar-section">
@@ -1341,45 +1338,6 @@
               <button class="topbar-btn" id="patientNextBtn" onclick="changePatientPage(1)" style="padding:6px 14px;font-size:12px;">Next →</button>
             </div>
           </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ══ NOTIFICATIONS VIEW ══ -->
-    <div class="view" id="view-notifications">
-      <div class="reminder-card">
-        <div class="panel-header">
-          <div class="panel-title">Reminder Schedule</div>
-        </div>
-        <div class="reminder-timeline">
-          <div class="reminder-step">
-            <div class="reminder-dot" style="background:var(--amber-light);color:var(--amber);">🌅</div>
-            <div class="reminder-when">Morning Of (6:00 AM)</div>
-            <div class="reminder-desc">A single reminder is sent at 6am on the day of the appointment, including the doctor name, time, and what to bring.</div>
-          </div>
-        </div>
-      </div>
-
-      <div class="panel" style="margin-top:20px;">
-        <div class="panel-header"><div class="panel-title">Message Preview</div></div>
-        <div class="panel-body">
-          <div class="wa-preview">
-            <div class="wa-label">PhilaConnect Bot</div>
-            <div class="wa-msg" id="waMsg">
-              Appointment reminder - today.<br><br>
-              Time: 08:00<br>Doctor: Dr. Kotzé-Scott<br>Clinic: {{ clinic_name }}<br><br>
-              Bring your ID and arrive 10 minutes early.
-              <div class="wa-msg-time">06:00 ✓✓</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="panel" style="margin-top:20px;">
-        <div class="panel-header"><div class="panel-title">Reminders Sent Today</div></div>
-        <div class="panel-body">
-          <div style="font-size:32px;font-weight:600;color:var(--ink);">{{ reminders_sent_today }}</div>
-          <div style="font-size:13px;color:var(--ink-muted);margin-top:4px;">patients notified this morning</div>
         </div>
       </div>
     </div>
