@@ -1024,7 +1024,7 @@
 
   <div class="clinic-info">
     <div style="margin-bottom:6px;"><span class="online-dot"></span><span style="font-size:11px;color:#4CAF50;font-weight:500;">Bot Online</span></div>
-    <div class="clinic-name">{{ hospitals[0][1] if hospitals else 'The Riverside Cottage' }}</div>
+    <div class="clinic-name">{{ clinic_name }}</div>
   </div>
 </aside>
 
@@ -1292,7 +1292,7 @@
             <div class="wa-label">PhilaConnect Bot</div>
             <div class="wa-msg" id="waMsg">
               Appointment reminder - today.<br><br>
-              Time: 08:00<br>Doctor: Dr. Kotzé-Scott<br>Clinic: {{ hospitals[0][1] if hospitals else 'The Riverside Cottage' }}<br><br>
+              Time: 08:00<br>Doctor: Dr. Kotzé-Scott<br>Clinic: {{ clinic_name }}<br><br>
               Bring your ID and arrive 10 minutes early.
               <div class="wa-msg-time">06:00 ✓✓</div>
             </div>
@@ -1314,7 +1314,7 @@
       <div class="stats-grid" style="grid-template-columns:repeat(2,1fr);margin-bottom:20px;">
         <div class="stat-card">
           <div class="stat-label">Clinic Name</div>
-          <div class="stat-value" style="font-size:24px;">{{ hospitals[0][1] if hospitals else 'PhilaConnect' }}</div>
+          <div class="stat-value" style="font-size:24px;">{{ clinic_name }}</div>
           <div class="stat-delta" style="color:var(--ink-muted);">Primary clinic</div>
         </div>
         <div class="stat-card">
@@ -1334,7 +1334,7 @@
             <div class="form-row">
               <div class="form-group">
                 <label class="form-label">Clinic Name</label>
-                <input class="form-input" id="settingClinicName" value="{{ hospitals[0][1] if hospitals else 'PhilaConnect Clinic' }}" placeholder="Clinic Name">
+                <input class="form-input" id="settingClinicName" value="{{ clinic_name }}" placeholder="Clinic Name">
               </div>
               <div class="form-group">
                 <label class="form-label">Contact Phone</label>

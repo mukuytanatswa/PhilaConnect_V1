@@ -1,12 +1,18 @@
 import sqlite3
 import json
 import os
+import hashlib
 from datetime import datetime, timedelta
 
 CLINIC_NAME = os.getenv("CLINIC_NAME", "PhilaConnect Clinic")
+DASHBOARD_USER = os.getenv("DASHBOARD_USER", "admin")
+DASHBOARD_PASS = os.getenv("DASHBOARD_PASS", "admin")
 
 # Database file — absolute path so it resolves correctly regardless of working directory
 DB_FILE = os.getenv("DATABASE_PATH", os.path.join(os.path.dirname(os.path.abspath(__file__)), 'philaconnect.db'))
+
+def _hash_password(password):
+    return hashlib.sha256(password.encode()).hexdigest()
 
 def init_db():
     conn = sqlite3.connect(DB_FILE)
@@ -73,6 +79,22 @@ def init_db():
         label TEXT DEFAULT 'Unavailable',
         FOREIGN KEY (doctor_id) REFERENCES doctors(id)
     )''')
+    # Clinic users — staff accounts tied to a specific hospital
+    c.execute('''CREATE TABLE IF NOT EXISTS clinic_users (
+        id INTEGER PRIMARY KEY,
+        hospital_id INTEGER,
+        username TEXT UNIQUE NOT NULL,
+        password_hash TEXT NOT NULL,
+        role TEXT NOT NULL DEFAULT 'admin'
+    )''')
+    # Sessions — tracks logged-in sessions
+    c.execute('''CREATE TABLE IF NOT EXISTS sessions (
+        token TEXT PRIMARY KEY,
+        hospital_id INTEGER,
+        role TEXT NOT NULL,
+        username TEXT NOT NULL,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    )''')
 
     # Ensure column available_days exists for backward compatibility
     c.execute("PRAGMA table_info(doctors)")
@@ -94,10 +116,7 @@ def init_db():
     # Insert sample data if not exists
     c.execute('SELECT COUNT(*) FROM hospitals')
     if c.fetchone()[0] == 0:
-        hospitals = [
-            (CLINIC_NAME,),
-        ]
-        c.executemany('INSERT INTO hospitals (name) VALUES (?)', hospitals)
+        c.executemany('INSERT INTO hospitals (name) VALUES (?)', [(CLINIC_NAME,)])
         conn.commit()
 
     # Ensure hospital exists
@@ -110,14 +129,101 @@ def init_db():
     else:
         hospital_id = hosp_row[0]
 
-
     # Fix any existing doctor rows with hospital_id 0 to the default clinic ID
     c.execute('UPDATE doctors SET hospital_id = ? WHERE hospital_id = 0', (hospital_id,))
 
     # Update specialties to General Practice
     c.execute('UPDATE doctors SET specialty = "General Practice" WHERE specialty IS NOT NULL')
     conn.commit()
+
+    # Seed default superadmin if clinic_users is empty
+    c.execute('SELECT COUNT(*) FROM clinic_users')
+    if c.fetchone()[0] == 0:
+        # Prefer password already saved in settings table (changed via UI)
+        c.execute('SELECT value FROM settings WHERE key = ?', ('dashboard_pass',))
+        settings_row = c.fetchone()
+        initial_pass = settings_row[0] if settings_row else DASHBOARD_PASS
+        c.execute(
+            'INSERT INTO clinic_users (hospital_id, username, password_hash, role) VALUES (?, ?, ?, ?)',
+            (None, DASHBOARD_USER, _hash_password(initial_pass), 'superadmin')
+        )
+        conn.commit()
+
     conn.close()
+
+# ── Auth helpers ─────────────────────────────────────────────────────────────
+
+def get_clinic_user_by_username(username):
+    """Returns (id, hospital_id, username, password_hash, role) or None."""
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute('SELECT id, hospital_id, username, password_hash, role FROM clinic_users WHERE username = ?', (username,))
+    row = c.fetchone()
+    conn.close()
+    return row
+
+def verify_password(password, password_hash):
+    return _hash_password(password) == password_hash
+
+def create_session(token, hospital_id, role, username):
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute('INSERT OR REPLACE INTO sessions (token, hospital_id, role, username) VALUES (?, ?, ?, ?)',
+              (token, hospital_id, role, username))
+    conn.commit()
+    conn.close()
+
+def get_session(token):
+    """Returns (hospital_id, role, username) or None."""
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute('SELECT hospital_id, role, username FROM sessions WHERE token = ?', (token,))
+    row = c.fetchone()
+    conn.close()
+    return row
+
+def delete_session(token):
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute('DELETE FROM sessions WHERE token = ?', (token,))
+    conn.commit()
+    conn.close()
+
+def update_clinic_user_password(username, new_password_hash):
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute('UPDATE clinic_users SET password_hash = ? WHERE username = ?', (new_password_hash, username))
+    conn.commit()
+    conn.close()
+
+def list_clinic_users():
+    """Returns all clinic users for management."""
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute('''SELECT cu.id, cu.username, cu.role, cu.hospital_id, h.name
+                 FROM clinic_users cu
+                 LEFT JOIN hospitals h ON cu.hospital_id = h.id
+                 ORDER BY cu.role, cu.username''')
+    rows = c.fetchall()
+    conn.close()
+    return rows
+
+def create_clinic_user(username, password, role, hospital_id):
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute('INSERT INTO clinic_users (hospital_id, username, password_hash, role) VALUES (?, ?, ?, ?)',
+              (hospital_id, username, _hash_password(password), role))
+    conn.commit()
+    conn.close()
+
+def delete_clinic_user(user_id):
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute('DELETE FROM clinic_users WHERE id = ?', (user_id,))
+    conn.commit()
+    conn.close()
+
+# ── Core bot functions ────────────────────────────────────────────────────────
 
 def set_state(phone, state, data=None):
     conn = sqlite3.connect(DB_FILE)
@@ -210,14 +316,11 @@ def book_appointment(phone, doctor_id, date, time):
     print(f"[book_appointment] saved appointment_id={appointment_id}")
     return appointment_id
 
-def get_appointments(phone=None, doctor_id=None, include_past=False):
+def get_appointments(phone=None, doctor_id=None, include_past=False, hospital_id=None):
     """Get appointments. By default shows only future 'booked' and 'rescheduled' appointments"""
-    # Don't auto-mark past appointments as completed - let user's actions determine status
-    # mark_past_appointments_completed()
-    
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
-    
+
     if phone:
         # For patient: show all non-cancelled future booked/rescheduled appointments
         c.execute('''SELECT a.id, d.id, d.name, d.specialty, h.name, a.date, a.time, a.status
@@ -233,15 +336,26 @@ def get_appointments(phone=None, doctor_id=None, include_past=False):
                      ORDER BY a.date, a.time''', (doctor_id,))
     else:
         # For dashboard: show all appointments with patient name from user_profiles
-        c.execute('''SELECT a.id, a.doctor_id, a.phone,
-                            COALESCE(up.name, a.phone) AS patient_name,
-                            d.name, h.name, a.date, a.time, a.status, a.reminder_sent
-                     FROM appointments a
-                     JOIN doctors d ON a.doctor_id = d.id
-                     JOIN hospitals h ON d.hospital_id = h.id
-                     LEFT JOIN user_profiles up ON a.phone = up.phone
-                     ORDER BY a.date DESC, a.time DESC''')
-    
+        if hospital_id:
+            c.execute('''SELECT a.id, a.doctor_id, a.phone,
+                                COALESCE(up.name, a.phone) AS patient_name,
+                                d.name, h.name, a.date, a.time, a.status, a.reminder_sent
+                         FROM appointments a
+                         JOIN doctors d ON a.doctor_id = d.id
+                         JOIN hospitals h ON d.hospital_id = h.id
+                         LEFT JOIN user_profiles up ON a.phone = up.phone
+                         WHERE h.id = ?
+                         ORDER BY a.date DESC, a.time DESC''', (hospital_id,))
+        else:
+            c.execute('''SELECT a.id, a.doctor_id, a.phone,
+                                COALESCE(up.name, a.phone) AS patient_name,
+                                d.name, h.name, a.date, a.time, a.status, a.reminder_sent
+                         FROM appointments a
+                         JOIN doctors d ON a.doctor_id = d.id
+                         JOIN hospitals h ON d.hospital_id = h.id
+                         LEFT JOIN user_profiles up ON a.phone = up.phone
+                         ORDER BY a.date DESC, a.time DESC''')
+
     appointments = c.fetchall()
     conn.close()
     return appointments
@@ -280,7 +394,6 @@ def cancel_old_no_shows():
     conn.close()
 
 def mark_appointment_completed(appointment_id):
-    """Mark an appointment as completed"""
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
     c.execute('UPDATE appointments SET status = "completed" WHERE id = ?', (appointment_id,))
@@ -288,7 +401,6 @@ def mark_appointment_completed(appointment_id):
     conn.close()
 
 def mark_past_appointments_completed():
-    """Auto-mark appointments as completed if time has passed"""
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
     now = datetime.now().strftime('%Y-%m-%d %H:%M')
@@ -310,32 +422,54 @@ def update_doctor_availability(doctor_id, available_days):
     conn.commit()
     conn.close()
 
-def get_doctors_all():
+def get_doctors_all(hospital_id=None):
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
-    c.execute('SELECT id, name, specialty, hospital_id, is_active, available_days FROM doctors')
+    if hospital_id:
+        c.execute('SELECT id, name, specialty, hospital_id, is_active, available_days FROM doctors WHERE hospital_id = ?', (hospital_id,))
+    else:
+        c.execute('SELECT id, name, specialty, hospital_id, is_active, available_days FROM doctors')
     doctors = c.fetchall()
     conn.close()
     return doctors
 
-def get_patients():
-    """Get all patients with visit stats for the dashboard patients tab"""
+def get_patients(hospital_id=None):
+    """Get patients with visit stats for the dashboard patients tab"""
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
-    c.execute('''
-        SELECT up.phone, up.name, up.created_at,
-               COUNT(a.id) AS visit_count,
-               MAX(a.date) AS last_visit,
-               (SELECT d.name FROM appointments a2
-                JOIN doctors d ON a2.doctor_id = d.id
-                WHERE a2.phone = up.phone
-                ORDER BY a2.date DESC, a2.time DESC LIMIT 1) AS last_doctor
-        FROM user_profiles up
-        LEFT JOIN appointments a ON up.phone = a.phone
-            AND a.status = 'completed'
-        GROUP BY up.phone
-        ORDER BY last_visit DESC, up.created_at DESC
-    ''')
+    if hospital_id:
+        c.execute('''
+            SELECT up.phone, up.name, up.created_at,
+                   COUNT(a.id) AS visit_count,
+                   MAX(a.date) AS last_visit,
+                   (SELECT d.name FROM appointments a2
+                    JOIN doctors d ON a2.doctor_id = d.id
+                    WHERE a2.phone = up.phone AND d.hospital_id = ?
+                    ORDER BY a2.date DESC, a2.time DESC LIMIT 1) AS last_doctor
+            FROM user_profiles up
+            JOIN appointments any_a ON up.phone = any_a.phone
+            JOIN doctors any_d ON any_a.doctor_id = any_d.id AND any_d.hospital_id = ?
+            LEFT JOIN appointments a ON up.phone = a.phone
+                AND a.status = 'completed'
+                AND a.doctor_id IN (SELECT id FROM doctors WHERE hospital_id = ?)
+            GROUP BY up.phone
+            ORDER BY last_visit DESC, up.created_at DESC
+        ''', (hospital_id, hospital_id, hospital_id))
+    else:
+        c.execute('''
+            SELECT up.phone, up.name, up.created_at,
+                   COUNT(a.id) AS visit_count,
+                   MAX(a.date) AS last_visit,
+                   (SELECT d.name FROM appointments a2
+                    JOIN doctors d ON a2.doctor_id = d.id
+                    WHERE a2.phone = up.phone
+                    ORDER BY a2.date DESC, a2.time DESC LIMIT 1) AS last_doctor
+            FROM user_profiles up
+            LEFT JOIN appointments a ON up.phone = a.phone
+                AND a.status = 'completed'
+            GROUP BY up.phone
+            ORDER BY last_visit DESC, up.created_at DESC
+        ''')
     patients = c.fetchall()
     conn.close()
     return patients
@@ -364,7 +498,6 @@ def mark_reminder_sent(appointment_id):
     conn.close()
 
 def get_user_profile(phone):
-    """Get user profile by phone number, returns (name, preferred_hospital_id) or (None, None)"""
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
     c.execute('SELECT name, preferred_hospital_id FROM user_profiles WHERE phone = ?', (phone,))
@@ -375,46 +508,69 @@ def get_user_profile(phone):
     return None, None
 
 def set_user_profile(phone, name, preferred_hospital_id=None):
-    """Set or update user profile"""
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
-    c.execute('INSERT OR REPLACE INTO user_profiles (phone, name, preferred_hospital_id, updated_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)', 
+    c.execute('INSERT OR REPLACE INTO user_profiles (phone, name, preferred_hospital_id, updated_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)',
               (phone, name, preferred_hospital_id))
     conn.commit()
     conn.close()
 
-def get_today_count():
+def get_today_count(hospital_id=None):
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
     today = datetime.now().strftime('%Y-%m-%d')
-    c.execute("SELECT COUNT(*) FROM appointments WHERE date = ? AND status IN ('booked', 'rescheduled')", (today,))
+    if hospital_id:
+        c.execute("""SELECT COUNT(*) FROM appointments a
+                     JOIN doctors d ON a.doctor_id = d.id
+                     WHERE a.date = ? AND a.status IN ('booked', 'rescheduled')
+                     AND d.hospital_id = ?""", (today, hospital_id))
+    else:
+        c.execute("SELECT COUNT(*) FROM appointments WHERE date = ? AND status IN ('booked', 'rescheduled')", (today,))
     count = c.fetchone()[0]
     conn.close()
     return count
 
-def get_yesterday_count():
+def get_yesterday_count(hospital_id=None):
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
     yesterday = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
-    c.execute("SELECT COUNT(*) FROM appointments WHERE date = ? AND status IN ('booked', 'rescheduled', 'completed')", (yesterday,))
+    if hospital_id:
+        c.execute("""SELECT COUNT(*) FROM appointments a
+                     JOIN doctors d ON a.doctor_id = d.id
+                     WHERE a.date = ? AND a.status IN ('booked', 'rescheduled', 'completed')
+                     AND d.hospital_id = ?""", (yesterday, hospital_id))
+    else:
+        c.execute("SELECT COUNT(*) FROM appointments WHERE date = ? AND status IN ('booked', 'rescheduled', 'completed')", (yesterday,))
     count = c.fetchone()[0]
     conn.close()
     return count
 
-def get_reminders_sent_today():
+def get_reminders_sent_today(hospital_id=None):
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
     today = datetime.now().strftime('%Y-%m-%d')
-    c.execute("SELECT COUNT(*) FROM appointments WHERE date = ? AND reminder_sent = 1", (today,))
+    if hospital_id:
+        c.execute("""SELECT COUNT(*) FROM appointments a
+                     JOIN doctors d ON a.doctor_id = d.id
+                     WHERE a.date = ? AND a.reminder_sent = 1
+                     AND d.hospital_id = ?""", (today, hospital_id))
+    else:
+        c.execute("SELECT COUNT(*) FROM appointments WHERE date = ? AND reminder_sent = 1", (today,))
     count = c.fetchone()[0]
     conn.close()
     return count
 
-def get_upcoming_count():
+def get_upcoming_count(hospital_id=None):
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
     today = datetime.now().strftime('%Y-%m-%d')
-    c.execute("SELECT COUNT(*) FROM appointments WHERE date >= ? AND status IN ('booked', 'rescheduled')", (today,))
+    if hospital_id:
+        c.execute("""SELECT COUNT(*) FROM appointments a
+                     JOIN doctors d ON a.doctor_id = d.id
+                     WHERE a.date >= ? AND a.status IN ('booked', 'rescheduled')
+                     AND d.hospital_id = ?""", (today, hospital_id))
+    else:
+        c.execute("SELECT COUNT(*) FROM appointments WHERE date >= ? AND status IN ('booked', 'rescheduled')", (today,))
     count = c.fetchone()[0]
     conn.close()
     return count
