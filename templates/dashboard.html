@@ -1092,89 +1092,6 @@
         {% endfor %}
       </div>
 
-      <!-- Manage Clinics -->
-      <div class="panel" style="margin-bottom:20px;">
-        <div class="panel-header"><div class="panel-title">Manage Clinics</div></div>
-        <div class="panel-body">
-          <table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:16px;" id="clinicsTable">
-            <thead>
-              <tr style="border-bottom:1.5px solid var(--border);">
-                <th style="text-align:left;padding:6px 8px;color:var(--ink-muted);font-weight:500;">ID</th>
-                <th style="text-align:left;padding:6px 8px;color:var(--ink-muted);font-weight:500;">Clinic Name</th>
-                <th style="padding:6px 8px;"></th>
-              </tr>
-            </thead>
-            <tbody id="clinicsTableBody">
-              {% for h in hospitals %}
-              <tr id="clinic-row-{{ h[0] }}" style="border-bottom:1px solid var(--border);">
-                <td style="padding:8px;color:var(--ink-muted);">{{ h[0] }}</td>
-                <td style="padding:8px;color:var(--ink);font-weight:500;">{{ h[1] }}</td>
-                <td style="padding:8px;text-align:right;"><button onclick="deleteClinic({{ h[0] }}, '{{ h[1] }}')" style="background:none;border:none;color:var(--terracotta);cursor:pointer;font-size:12px;padding:2px 6px;">Remove</button></td>
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-          <form onsubmit="addClinic(event)" style="display:flex;gap:10px;align-items:flex-end;">
-            <div class="form-group" style="flex:1;margin-bottom:0;">
-              <label class="form-label">New Clinic Name</label>
-              <input class="form-input" id="newClinicName" placeholder="e.g. Sandton Health Centre" required style="margin-bottom:0;">
-            </div>
-            <button class="btn btn-primary" type="submit" style="white-space:nowrap;">Add Clinic</button>
-          </form>
-          <div id="addClinicMsg" style="margin-top:10px;font-size:13px;display:none;"></div>
-        </div>
-      </div>
-
-      <!-- Staff Accounts -->
-      <div class="panel">
-        <div class="panel-header"><div class="panel-title">Staff Accounts</div></div>
-        <div class="panel-body">
-          <table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:16px;">
-            <thead>
-              <tr style="border-bottom:1.5px solid var(--border);">
-                <th style="text-align:left;padding:6px 8px;color:var(--ink-muted);font-weight:500;">Username</th>
-                <th style="text-align:left;padding:6px 8px;color:var(--ink-muted);font-weight:500;">Role</th>
-                <th style="text-align:left;padding:6px 8px;color:var(--ink-muted);font-weight:500;">Clinic</th>
-                <th style="padding:6px 8px;"></th>
-              </tr>
-            </thead>
-            <tbody id="staffTableBody"><!-- populated by loadStaff() --></tbody>
-          </table>
-          <form onsubmit="addStaff(event)">
-            <div class="form-row">
-              <div class="form-group">
-                <label class="form-label">Username</label>
-                <input class="form-input" id="newStaffUsername" placeholder="e.g. clinicadmin" required>
-              </div>
-              <div class="form-group">
-                <label class="form-label">Password</label>
-                <input class="form-input" id="newStaffPassword" type="password" placeholder="Min. 6 characters" required>
-              </div>
-            </div>
-            <div class="form-row">
-              <div class="form-group">
-                <label class="form-label">Role</label>
-                <select class="form-input" id="newStaffRole">
-                  <option value="admin">Admin (single clinic)</option>
-                  <option value="superadmin">Superadmin (all clinics)</option>
-                </select>
-              </div>
-              <div class="form-group">
-                <label class="form-label">Clinic</label>
-                <select class="form-input" id="newStaffClinic">
-                  <option value="">— All clinics (superadmin) —</option>
-                  {% for h in hospitals %}
-                  <option value="{{ h[0] }}">{{ h[1] }}</option>
-                  {% endfor %}
-                </select>
-              </div>
-            </div>
-            <button class="btn btn-primary" type="submit" style="margin-top:4px;">Add Staff Account</button>
-          </form>
-          <div id="addStaffMsg" style="margin-top:10px;font-size:13px;display:none;"></div>
-        </div>
-      </div>
-
       {% else %}
 
       <div class="stats-grid">
@@ -1469,6 +1386,92 @@
 
     <!-- ══ SETTINGS VIEW ══ -->
     <div class="view" id="view-settings">
+      {% if current_role == 'superadmin' %}
+
+      <!-- Manage Clinics -->
+      <div class="panel" style="margin-bottom:20px;">
+        <div class="panel-header"><div class="panel-title">Manage Clinics</div></div>
+        <div class="panel-body">
+          <table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:16px;" id="clinicsTable">
+            <thead>
+              <tr style="border-bottom:1.5px solid var(--border);">
+                <th style="text-align:left;padding:6px 8px;color:var(--ink-muted);font-weight:500;">ID</th>
+                <th style="text-align:left;padding:6px 8px;color:var(--ink-muted);font-weight:500;">Clinic Name</th>
+                <th style="padding:6px 8px;"></th>
+              </tr>
+            </thead>
+            <tbody id="clinicsTableBody">
+              {% for h in hospitals %}
+              <tr id="clinic-row-{{ h[0] }}" style="border-bottom:1px solid var(--border);">
+                <td style="padding:8px;color:var(--ink-muted);">{{ h[0] }}</td>
+                <td style="padding:8px;color:var(--ink);font-weight:500;">{{ h[1] }}</td>
+                <td style="padding:8px;text-align:right;"><button onclick="deleteClinic({{ h[0] }}, '{{ h[1] }}')" style="background:none;border:none;color:var(--terracotta);cursor:pointer;font-size:12px;padding:2px 6px;">Remove</button></td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          <form onsubmit="addClinic(event)" style="display:flex;gap:10px;align-items:flex-end;">
+            <div class="form-group" style="flex:1;margin-bottom:0;">
+              <label class="form-label">New Clinic Name</label>
+              <input class="form-input" id="newClinicName" placeholder="e.g. Sandton Health Centre" required style="margin-bottom:0;">
+            </div>
+            <button class="btn btn-primary" type="submit" style="white-space:nowrap;">Add Clinic</button>
+          </form>
+          <div id="addClinicMsg" style="margin-top:10px;font-size:13px;display:none;"></div>
+        </div>
+      </div>
+
+      <!-- Staff Accounts -->
+      <div class="panel">
+        <div class="panel-header"><div class="panel-title">Staff Accounts</div></div>
+        <div class="panel-body">
+          <table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:16px;">
+            <thead>
+              <tr style="border-bottom:1.5px solid var(--border);">
+                <th style="text-align:left;padding:6px 8px;color:var(--ink-muted);font-weight:500;">Username</th>
+                <th style="text-align:left;padding:6px 8px;color:var(--ink-muted);font-weight:500;">Role</th>
+                <th style="text-align:left;padding:6px 8px;color:var(--ink-muted);font-weight:500;">Clinic</th>
+                <th style="padding:6px 8px;"></th>
+              </tr>
+            </thead>
+            <tbody id="staffTableBody"><!-- populated by loadStaff() --></tbody>
+          </table>
+          <form onsubmit="addStaff(event)">
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Username</label>
+                <input class="form-input" id="newStaffUsername" placeholder="e.g. clinicadmin" required>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Password</label>
+                <input class="form-input" id="newStaffPassword" type="password" placeholder="Min. 6 characters" required>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Role</label>
+                <select class="form-input" id="newStaffRole">
+                  <option value="admin">Admin (single clinic)</option>
+                  <option value="superadmin">Superadmin (all clinics)</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Clinic</label>
+                <select class="form-input" id="newStaffClinic">
+                  <option value="">— All clinics (superadmin) —</option>
+                  {% for h in hospitals %}
+                  <option value="{{ h[0] }}">{{ h[1] }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+            </div>
+            <button class="btn btn-primary" type="submit" style="margin-top:4px;">Add Staff Account</button>
+          </form>
+          <div id="addStaffMsg" style="margin-top:10px;font-size:13px;display:none;"></div>
+        </div>
+      </div>
+
+      {% else %}
       <div class="stats-grid" style="grid-template-columns:repeat(2,1fr);margin-bottom:20px;">
         <div class="stat-card">
           <div class="stat-label">Clinic Name</div>
@@ -1577,6 +1580,7 @@
         </div>
       </div>
 
+      {% endif %}
     </div>
 
   </div>
