@@ -1081,7 +1081,7 @@
       <div style="font-size:12px;font-weight:600;color:var(--ink-muted);text-transform:uppercase;letter-spacing:0.06em;margin:24px 0 12px;">Clinics</div>
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px;margin-bottom:28px;">
         {% for h in hospitals %}
-        <div class="stat-card" style="cursor:default;">
+        <div class="stat-card" id="clinic-card-{{ h[0] }}" style="cursor:default;">
           <div class="stat-label" style="font-size:14px;font-weight:600;color:var(--ink);">{{ h[1] }}</div>
           <div class="stat-value" style="font-size:32px;margin:8px 0 4px;">{{ clinic_stats[h[0]]['today'] }}</div>
           <div class="stat-delta" style="color:var(--ink-muted);">today · {{ clinic_stats[h[0]]['active_doctors'] }}/{{ clinic_stats[h[0]]['doctors'] }} doctors active</div>
@@ -1101,13 +1101,15 @@
               <tr style="border-bottom:1.5px solid var(--border);">
                 <th style="text-align:left;padding:6px 8px;color:var(--ink-muted);font-weight:500;">ID</th>
                 <th style="text-align:left;padding:6px 8px;color:var(--ink-muted);font-weight:500;">Clinic Name</th>
+                <th style="padding:6px 8px;"></th>
               </tr>
             </thead>
             <tbody id="clinicsTableBody">
               {% for h in hospitals %}
-              <tr style="border-bottom:1px solid var(--border);">
+              <tr id="clinic-row-{{ h[0] }}" style="border-bottom:1px solid var(--border);">
                 <td style="padding:8px;color:var(--ink-muted);">{{ h[0] }}</td>
                 <td style="padding:8px;color:var(--ink);font-weight:500;">{{ h[1] }}</td>
+                <td style="padding:8px;text-align:right;"><button onclick="deleteClinic({{ h[0] }}, '{{ h[1] }}')" style="background:none;border:none;color:var(--terracotta);cursor:pointer;font-size:12px;padding:2px 6px;">Remove</button></td>
               </tr>
               {% endfor %}
             </tbody>
@@ -1347,12 +1349,15 @@
         {% set days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] %}
 
         {% for doc in doctors %}
-        <div class="doc-full-row">
+        <div class="doc-full-row" data-doc-id="{{ doc[0] }}">
           <div class="doc-avatar" style="background:var(--terracotta-light);color:var(--terracotta);width:48px;height:48px;font-size:17px;">{{ doc[1][:2].upper() }}</div>
           <div class="doc-info">
             <div class="doc-name" style="font-size:15px;">{{ doc[1] }}</div>
             <div class="doc-specialty">{{ doc[2] }} · {{ appt_counts.get(doc[0], 0) }} appts</div>
           </div>
+          {% if current_role == 'superadmin' %}
+          <span style="font-size:11px;padding:2px 9px;border-radius:10px;background:var(--sky-light,#e8f4fd);color:var(--sky,#2196F3);white-space:nowrap;flex-shrink:0;">{{ hospital_map.get(doc[3], '—') }}</span>
+          {% endif %}
           <div class="doc-availability-pills">
             {% for day in days %}
             <span class="avail-pill {{ 'active' if day in (doc[5] or '').split(',') else '' }}" onclick="toggleDay(this, '{{ doc[0] }}', '{{ day }}')">{{ day }}</span>
@@ -1360,6 +1365,7 @@
           </div>
           <button class="btn btn-ghost" style="font-size:12px;padding:4px 10px;white-space:nowrap;" onclick="openScheduleModal({{ doc[0] }}, '{{ doc[1] }}')">Schedule</button>
           <button class="btn btn-ghost" style="font-size:12px;padding:4px 10px;white-space:nowrap;" onclick="openBlockedModal({{ doc[0] }}, '{{ doc[1] }}')">Block Times</button>
+          <button class="btn btn-ghost" style="font-size:12px;padding:4px 10px;white-space:nowrap;color:var(--terracotta);border-color:var(--terracotta-light);" onclick="deleteDoctor({{ doc[0] }}, '{{ doc[1] }}')">Remove</button>
           <label class="toggle" style="transform:scale(1.2);"><input type="checkbox" {{ 'checked' if doc[4] else '' }} onchange="toggleDoc(this, '{{ doc[0] }}')"><span class="toggle-track"></span></label>
         </div>
         {% endfor %}
@@ -1827,9 +1833,31 @@
           <label class="form-label">Date <span style="color:var(--ink-muted);font-size:11px;">(blank = recurring daily)</span></label>
           <input class="form-input" id="blockDate" type="date">
         </div>
-        <div class="form-group" style="flex:1;min-width:120px;">
-          <label class="form-label">Time</label>
-          <select class="form-input" id="blockTime">
+        <div class="form-group" style="flex:1;min-width:110px;">
+          <label class="form-label">From</label>
+          <select class="form-input" id="blockTimeFrom">
+            <option value="09:00">9:00 AM</option>
+            <option value="09:30">9:30 AM</option>
+            <option value="10:00">10:00 AM</option>
+            <option value="10:30">10:30 AM</option>
+            <option value="11:00">11:00 AM</option>
+            <option value="11:30">11:30 AM</option>
+            <option value="12:00">12:00 PM</option>
+            <option value="12:30">12:30 PM</option>
+            <option value="13:00">1:00 PM</option>
+            <option value="13:30">1:30 PM</option>
+            <option value="14:00">2:00 PM</option>
+            <option value="14:30">2:30 PM</option>
+            <option value="15:00">3:00 PM</option>
+            <option value="15:30">3:30 PM</option>
+            <option value="16:00">4:00 PM</option>
+            <option value="16:30">4:30 PM</option>
+            <option value="17:00">5:00 PM</option>
+          </select>
+        </div>
+        <div class="form-group" style="flex:1;min-width:110px;">
+          <label class="form-label">Until</label>
+          <select class="form-input" id="blockTimeUntil">
             <option value="09:00">9:00 AM</option>
             <option value="09:30">9:30 AM</option>
             <option value="10:00">10:00 AM</option>
@@ -2043,12 +2071,15 @@
   }
 
   function addBlockedSlot() {
+    const startTime = document.getElementById('blockTimeFrom').value;
+    const endTime = document.getElementById('blockTimeUntil').value;
     const fd = new FormData();
     fd.append('doctor_id', currentBlockDoctorId);
-    fd.append('time', document.getElementById('blockTime').value);
+    fd.append('start_time', startTime);
+    fd.append('end_time', endTime);
     fd.append('date', document.getElementById('blockDate').value);
     fd.append('label', document.getElementById('blockLabel').value || 'Unavailable');
-    fetch('/api/blocked-slot/add', { method: 'POST', body: fd })
+    fetch('/api/blocked-slot/add-range', { method: 'POST', body: fd })
       .then(() => loadBlockedSlots(currentBlockDoctorId));
   }
 
@@ -2382,8 +2413,9 @@
       // Append to table
       const tbody = document.getElementById('clinicsTableBody');
       const tr = document.createElement('tr');
+      tr.id = `clinic-row-${data.id}`;
       tr.style.borderBottom = '1px solid var(--border)';
-      tr.innerHTML = `<td style="padding:8px;color:var(--ink-muted);">${data.id}</td><td style="padding:8px;color:var(--ink);font-weight:500;">${data.name}</td>`;
+      tr.innerHTML = `<td style="padding:8px;color:var(--ink-muted);">${data.id}</td><td style="padding:8px;color:var(--ink);font-weight:500;">${data.name}</td><td style="padding:8px;text-align:right;"><button onclick="deleteClinic(${data.id}, '${data.name}')" style="background:none;border:none;color:var(--terracotta);cursor:pointer;font-size:12px;padding:2px 6px;">Remove</button></td>`;
       tbody.appendChild(tr);
       // Also add to staff clinic dropdown
       const sel = document.getElementById('newStaffClinic');
@@ -2453,6 +2485,34 @@
     fd.append('user_id', userId);
     await fetch('/api/staff/delete', { method: 'POST', body: fd });
     loadStaff();
+  }
+
+  // ── DOCTOR & CLINIC REMOVAL ─────────────────────────────────────────────
+
+  async function deleteDoctor(doctorId, doctorName) {
+    if (!confirm(`Remove ${doctorName} from the practice?\n\nExisting appointments will be preserved in history.`)) return;
+    const fd = new FormData();
+    fd.append('doctor_id', doctorId);
+    const res = await fetch('/api/doctor/delete', { method: 'POST', body: fd });
+    const data = await res.json();
+    if (data.status === 'ok') {
+      const row = document.querySelector(`.doc-full-row[data-doc-id="${doctorId}"]`);
+      if (row) row.remove();
+    }
+  }
+
+  async function deleteClinic(clinicId, clinicName) {
+    if (!confirm(`Remove "${clinicName}" from the platform?\n\nDoctors and appointments linked to this clinic will remain in the database but the clinic will no longer appear in lists.`)) return;
+    const fd = new FormData();
+    fd.append('clinic_id', clinicId);
+    const res = await fetch('/api/clinic/delete', { method: 'POST', body: fd });
+    const data = await res.json();
+    if (data.status === 'ok') {
+      const row = document.getElementById(`clinic-row-${clinicId}`);
+      if (row) row.remove();
+      const card = document.getElementById(`clinic-card-${clinicId}`);
+      if (card) card.remove();
+    }
   }
 
   // ── STARTUP ──

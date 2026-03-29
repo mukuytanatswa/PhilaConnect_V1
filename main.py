@@ -15,6 +15,7 @@ from db import (
     get_clinic_user_by_username, verify_password, create_session,
     get_session, delete_session, update_clinic_user_password, _hash_password,
     list_clinic_users, create_clinic_user, delete_clinic_user, add_hospital,
+    add_blocked_slots_range, delete_doctor, delete_hospital,
 )
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -137,6 +138,7 @@ async def dashboard(request: Request):
         doctors = get_doctors_all(hospital_id=filter_hid)
         hospitals = get_hospitals()
         clinic_name = _get_clinic_name(filter_hid)
+        hospital_map = {h[0]: h[1] for h in hospitals}
         # Per-clinic stats for superadmin home view
         clinic_stats = {}
         if getattr(request.state, 'role', None) == 'superadmin':
@@ -183,6 +185,7 @@ async def dashboard(request: Request):
             "current_role": getattr(request.state, 'role', 'admin'),
             "current_username": getattr(request.state, 'username', ''),
             "clinic_stats": clinic_stats,
+            "hospital_map": hospital_map,
         })
     except Exception as e:
         print(f"Error loading dashboard: {e}")
@@ -307,6 +310,29 @@ async def api_add_blocked_slot(
 @app.post("/api/blocked-slot/remove")
 async def api_remove_blocked_slot(slot_id: int = Form(...)):
     remove_blocked_slot(slot_id)
+    return {"status": "ok"}
+
+@app.post("/api/blocked-slot/add-range")
+async def api_add_blocked_slot_range(
+    doctor_id: int = Form(...),
+    start_time: str = Form(...),
+    end_time: str = Form(...),
+    date: str = Form(""),
+    label: str = Form("Unavailable")
+):
+    add_blocked_slots_range(doctor_id, start_time, end_time, date or None, label)
+    return {"status": "ok"}
+
+@app.post("/api/doctor/delete")
+async def api_delete_doctor(doctor_id: int = Form(...)):
+    delete_doctor(doctor_id)
+    return {"status": "ok"}
+
+@app.post("/api/clinic/delete")
+async def api_delete_clinic(request: Request, clinic_id: int = Form(...)):
+    if getattr(request.state, 'role', None) != 'superadmin':
+        return JSONResponse({"error": "Forbidden"}, status_code=403)
+    delete_hospital(clinic_id)
     return {"status": "ok"}
 
 @app.get("/api/blocked-slots/{doctor_id}")

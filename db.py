@@ -101,6 +101,8 @@ def init_db():
     columns = [row[1] for row in c.fetchall()]
     if 'available_days' not in columns:
         c.execute("ALTER TABLE doctors ADD COLUMN available_days TEXT DEFAULT 'Mon,Tue,Wed,Thu,Fri,Sat,Sun'")
+    if 'is_deleted' not in columns:
+        c.execute("ALTER TABLE doctors ADD COLUMN is_deleted INTEGER DEFAULT 0")
 
     # Add reminder_sent column if it doesn't exist (migration for existing databases)
     c.execute("PRAGMA table_info(appointments)")
@@ -265,7 +267,7 @@ def add_hospital(name):
 def get_doctors(hospital_id):
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
-    c.execute('SELECT id, name, specialty, available_days FROM doctors WHERE hospital_id = ? AND is_active = 1', (hospital_id,))
+    c.execute('SELECT id, name, specialty, available_days FROM doctors WHERE hospital_id = ? AND is_active = 1 AND (is_deleted = 0 OR is_deleted IS NULL)', (hospital_id,))
     doctors = c.fetchall()
     conn.close()
     return doctors
@@ -435,9 +437,9 @@ def get_doctors_all(hospital_id=None):
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
     if hospital_id:
-        c.execute('SELECT id, name, specialty, hospital_id, is_active, available_days FROM doctors WHERE hospital_id = ?', (hospital_id,))
+        c.execute('SELECT id, name, specialty, hospital_id, is_active, available_days FROM doctors WHERE hospital_id = ? AND (is_deleted = 0 OR is_deleted IS NULL)', (hospital_id,))
     else:
-        c.execute('SELECT id, name, specialty, hospital_id, is_active, available_days FROM doctors')
+        c.execute('SELECT id, name, specialty, hospital_id, is_active, available_days FROM doctors WHERE (is_deleted = 0 OR is_deleted IS NULL)')
     doctors = c.fetchall()
     conn.close()
     return doctors
@@ -630,6 +632,41 @@ def get_blocked_slots(doctor_id):
     rows = c.fetchall()
     conn.close()
     return rows
+
+def add_blocked_slots_range(doctor_id, start_time, end_time, date=None, label='Unavailable'):
+    """Block all 30-min slots from start_time to end_time inclusive."""
+    slots = []
+    h, m = 9, 0
+    while (h, m) <= (17, 0):
+        slots.append(f'{h:02d}:{m:02d}')
+        m += 30
+        if m >= 60:
+            m = 0
+            h += 1
+    try:
+        start_idx = slots.index(start_time)
+        end_idx = slots.index(end_time)
+    except ValueError:
+        return
+    if end_idx < start_idx:
+        return
+    for slot in slots[start_idx:end_idx + 1]:
+        add_blocked_slot(doctor_id, slot, date, label)
+
+def delete_doctor(doctor_id):
+    """Soft-delete a doctor — preserves appointment history."""
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute('UPDATE doctors SET is_deleted = 1 WHERE id = ?', (doctor_id,))
+    conn.commit()
+    conn.close()
+
+def delete_hospital(hospital_id):
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute('DELETE FROM hospitals WHERE id = ?', (hospital_id,))
+    conn.commit()
+    conn.close()
 
 # Initialize DB on import
 init_db()
