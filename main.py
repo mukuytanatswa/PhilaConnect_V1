@@ -137,6 +137,18 @@ async def dashboard(request: Request):
         doctors = get_doctors_all(hospital_id=filter_hid)
         hospitals = get_hospitals()
         clinic_name = _get_clinic_name(filter_hid)
+        # Per-clinic stats for superadmin home view
+        clinic_stats = {}
+        if getattr(request.state, 'role', None) == 'superadmin':
+            for h in hospitals:
+                h_id = h[0]
+                h_docs = get_doctors_all(hospital_id=h_id)
+                clinic_stats[h_id] = {
+                    'today': get_today_count(hospital_id=h_id),
+                    'doctors': len(h_docs),
+                    'active_doctors': sum(1 for d in h_docs if d[4] == 1),
+                    'upcoming': get_upcoming_count(hospital_id=h_id),
+                }
         active_doctors = sum(1 for doc in doctors if doc[4] == 1)
         appt_counts = {}
         for appt in appointments:
@@ -170,6 +182,7 @@ async def dashboard(request: Request):
             "patients_count": len(patients),
             "current_role": getattr(request.state, 'role', 'admin'),
             "current_username": getattr(request.state, 'username', ''),
+            "clinic_stats": clinic_stats,
         })
     except Exception as e:
         print(f"Error loading dashboard: {e}")
